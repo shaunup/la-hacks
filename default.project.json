@@ -1,0 +1,54 @@
+{
+  "name": "WellnessWorld",
+  "tree": {
+    "$className": "DataModel",
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "MoodServer": {
+        "$path": "src/ServerScriptService/MoodServer.server.lua"
+      }
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "MoodClient": {
+          "$path": "src/StarterPlayerScripts/MoodClient.client.lua"
+        }
+      }
+    },
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "Modules": {
+        "$className": "Folder",
+        "MoodConfig": {
+          "$path": "src/ReplicatedStorage/Modules/MoodConfig.lua"
+        }
+      },
+      "Games": {
+        "$className": "Folder",
+        "ColorBurst": {
+          "$path": "src/ReplicatedStorage/Games/ColorBurst.lua"
+        },
+        "BubbleBreathing": {
+          "$path": "src/ReplicatedStorage/Games/BubbleBreathing.lua"
+        },
+        "MemoryGarden": {
+          "$path": "src/ReplicatedStorage/Games/MemoryGarden.lua"
+        },
+        "StarSmash": {
+          "$path": "src/ReplicatedStorage/Games/StarSmash.lua"
+        },
+        "GratitudeJar": {
+          "$path": "src/ReplicatedStorage/Games/GratitudeJar.lua"
+        },
+        "CloudFloat": {
+          "$path": "src/ReplicatedStorage/Games/CloudFloat.lua"
+        }
+      }
+    }
+  }
+}
