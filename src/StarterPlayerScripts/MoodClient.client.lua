@@ -328,15 +328,6 @@ local function buildNameEntry()
 	screen.ZIndex            = 10
 	screen.Parent            = gui
 
-	-- Animated gradient background overlay (keeps UI readable)
-	local overlay = Instance.new("Frame")
-	overlay.Size             = UDim2.new(1, 0, 1, 0)
-	overlay.BackgroundColor3 = Color3.fromRGB(10, 5, 30)
-	overlay.BackgroundTransparency = 0.55
-	overlay.BorderSizePixel  = 0
-	overlay.ZIndex           = 10
-	overlay.Parent           = screen
-
 	local card = Instance.new("Frame")
 	card.Size               = UDim2.new(0, 460, 0, 310)
 	card.AnchorPoint        = Vector2.new(0.5, 0.5)
@@ -459,15 +450,6 @@ local function buildStartScreen()
 	screen.BackgroundTransparency = 1
 	screen.ZIndex            = 10
 	screen.Parent            = gui
-
-	-- Semi-transparent darkening overlay (keeps text readable over any scene)
-	local overlay = Instance.new("Frame")
-	overlay.Size             = UDim2.new(1, 0, 1, 0)
-	overlay.BackgroundColor3 = Color3.fromRGB(10, 5, 30)
-	overlay.BackgroundTransparency = 0.6
-	overlay.BorderSizePixel  = 0
-	overlay.ZIndex           = 10
-	overlay.Parent           = screen
 
 	local card = Instance.new("Frame")
 	card.Size               = UDim2.new(0, 500, 0, 340)
@@ -645,15 +627,6 @@ local function buildMoodReveal(mood, personalised, onPlay)
 	screen.BackgroundTransparency = 1
 	screen.ZIndex            = 20
 	screen.Parent            = gui
-
-	-- Frosted overlay behind card so scene is still partly visible
-	local overlay = Instance.new("Frame")
-	overlay.Size             = UDim2.new(1, 0, 1, 0)
-	overlay.BackgroundColor3 = Color3.fromRGB(5, 3, 18)
-	overlay.BackgroundTransparency = 0.45
-	overlay.BorderSizePixel  = 0
-	overlay.ZIndex           = 20
-	overlay.Parent           = screen
 
 	local card = Instance.new("Frame")
 	card.Size               = UDim2.new(0, 500, 0, 0)
@@ -869,13 +842,6 @@ local function buildPostGameScreen(mood, gameName, postMsg, challenge, onReplay,
 	screen.BackgroundTransparency = 1
 	screen.ZIndex            = 30
 	screen.Parent            = gui
-
-	local overlay = Instance.new("Frame")
-	overlay.Size             = UDim2.new(1, 0, 1, 0)
-	overlay.BackgroundColor3 = Color3.fromRGB(5, 3, 18)
-	overlay.BackgroundTransparency = 0.4
-	overlay.BorderSizePixel  = 0
-	overlay.ZIndex           = 30; overlay.Parent = screen
 
 	local card = Instance.new("Frame")
 	card.Size               = UDim2.new(0, 480, 0, 0)

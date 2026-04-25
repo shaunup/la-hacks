@@ -415,6 +415,6 @@ MoodConfig.GameInfo = {
 	},
 }
 
-MoodConfig.TransitionTime = 2.5
+MoodConfig.TransitionTime = 0.7   -- fast enough to feel instant
 
 return MoodConfig

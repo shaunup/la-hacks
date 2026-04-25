@@ -1,7 +1,8 @@
--- SceneLayer: draws an animated illustrated scene inside bgFrame.
--- All sizes/positions use SCALE values (0-1) so the scene fills any resolution.
--- Objects are inserted at ZIndex 2-6; gradient is on bgFrame itself (ZIndex 1).
--- Ambient particles (AmbientLayer) sit at ZIndex 7+, UI cards at ZIndex 10+.
+-- SceneLayer v2: vivid mood-matched illustrated backgrounds
+-- Uses scale-based sizing/positioning so scenes fill any resolution.
+-- ZIndex range: 2-6. Gradient (bgFrame UIGradient) is at ZIndex 1.
+-- Ambient particles live at ZIndex 7+, all UI cards at ZIndex 10+.
+-- All BackgroundTransparency values kept LOW (0-0.3) so shapes are clearly visible.
 
 local TweenService = game:GetService("TweenService")
 local RunService   = game:GetService("RunService")
@@ -9,41 +10,53 @@ local RunService   = game:GetService("RunService")
 local SceneLayer = {}
 SceneLayer.__index = SceneLayer
 
--- ─── tiny helpers ─────────────────────────────────────────────────────────────
+-- ─── helpers ──────────────────────────────────────────────────────────────────
 
-local function rnd(a, b) return a + math.random() * (b - a) end
-local function rndI(a, b) return math.random(a, b) end
+local function rnd(a, b)  return a + math.random() * (b - a)    end
+local function rndI(a, b) return math.random(a, b)              end
 
-local function frame(parent, x, y, w, h, col, alpha, z)
+-- Scale-based Frame
+local function sf(parent, x, y, w, h, col, alpha, z)
 	local f = Instance.new("Frame")
 	f.Position           = UDim2.new(x, 0, y, 0)
 	f.Size               = UDim2.new(w, 0, h, 0)
 	f.BackgroundColor3   = col
 	f.BackgroundTransparency = alpha or 0
 	f.BorderSizePixel    = 0
-	f.ZIndex             = z or 1
+	f.ZIndex             = z or 2
 	f.Parent             = parent
 	return f
 end
 
-local function pill(parent, x, y, w, h, col, alpha, z, rx)
-	local f = frame(parent, x, y, w, h, col, alpha, z)
+-- Pill (rounded) Frame
+local function pill(parent, x, y, w, h, col, alpha, z)
+	local f = sf(parent, x, y, w, h, col, alpha, z)
 	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, rx or 999)
+	c.CornerRadius = UDim.new(0, 999)
 	c.Parent = f
 	return f
 end
 
-local function emoji(parent, x, y, sz, text, z, anchorX, anchorY)
+-- Rounded Frame with explicit radius
+local function rounded(parent, x, y, w, h, col, alpha, z, r)
+	local f = sf(parent, x, y, w, h, col, alpha, z)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, r or 12)
+	c.Parent = f
+	return f
+end
+
+-- Emoji TextLabel (scale-positioned)
+local function emojiLabel(parent, x, y, sz, text, z)
 	local l = Instance.new("TextLabel")
-	l.Size               = UDim2.fromOffset(sz, sz)
-	l.AnchorPoint        = Vector2.new(anchorX or 0, anchorY or 0)
+	l.AnchorPoint        = Vector2.new(0, 0)
+	l.Size               = UDim2.new(0, sz, 0, sz)
 	l.Position           = UDim2.new(x, 0, y, 0)
 	l.BackgroundTransparency = 1
 	l.Text               = text
-	l.TextSize           = sz * 0.85
+	l.TextSize           = sz * 0.88
 	l.Font               = Enum.Font.GothamBold
-	l.ZIndex             = z or 1
+	l.ZIndex             = z or 2
 	l.Parent             = parent
 	return l
 end
@@ -51,145 +64,141 @@ end
 -- ─── constructor ──────────────────────────────────────────────────────────────
 
 function SceneLayer.new(parent, mood)
-	local self = setmetatable({
-		_parent = parent,
-		_objects = {},
-		_conns   = {},
-		_active  = true,
-	}, SceneLayer)
-
-	local builder = SceneLayer["_scene_" .. (mood or "neutral")]
-	if builder then builder(self) end
-
+	local self = setmetatable({ _parent=parent, _objects={}, _conns={}, _active=true }, SceneLayer)
+	local ok, err = pcall(function()
+		local builder = SceneLayer["_scene_" .. tostring(mood)]
+		if builder then builder(self) end
+	end)
+	if not ok then warn("[SceneLayer] build error for", mood, ":", err) end
 	return self
 end
 
--- ─── cleanup ──────────────────────────────────────────────────────────────────
-
-function SceneLayer:_add(obj)
-	table.insert(self._objects, obj)
-	return obj
-end
-
-function SceneLayer:_conn(c)
-	table.insert(self._conns, c)
-	return c
-end
+function SceneLayer:_add(o) table.insert(self._objects, o); return o end
+function SceneLayer:_conn(c) table.insert(self._conns,   c); return c end
 
 function SceneLayer:Stop()
 	self._active = false
-	for _, c in ipairs(self._conns) do c:Disconnect() end
-	for _, o in ipairs(self._objects) do
-		if o and o.Parent then o:Destroy() end
-	end
+	for _, c in ipairs(self._conns)   do pcall(function() c:Disconnect() end) end
+	for _, o in ipairs(self._objects) do if o and o.Parent then o:Destroy() end end
 	self._conns, self._objects = {}, {}
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- HAPPY — sunrise sky: large glowing sun, light clouds drifting right
+-- HAPPY — brilliant sunrise: deep gold sky, sun, rays, white clouds
 -- ═══════════════════════════════════════════════════════════════════════════════
-
 function SceneLayer:_scene_happy()
 	local p = self._parent
 
+	-- Sky fill (warm amber-to-gold)
+	self:_add(sf(p, 0, 0, 1, 1, Color3.fromRGB(255, 185, 40), 0.0, 2))
+	-- Horizon glow band
+	self:_add(sf(p, 0, 0.55, 1, 0.2, Color3.fromRGB(255, 130, 0), 0.15, 2))
 	-- Ground strip
-	self:_add(pill(p, 0, 0.78, 1, 0.22, Color3.fromRGB(255, 200, 80), 0.55, 1, 0))
+	self:_add(rounded(p, 0, 0.8, 1, 0.2, Color3.fromRGB(200, 120, 20), 0.0, 2, 0))
 
-	-- Sun glow aura
-	local sunGlow = self:_add(pill(p, 0, 0, 0, 0, Color3.fromRGB(255, 240, 120), 0.55, 1))
-	sunGlow.Size     = UDim2.fromOffset(260, 260)
+	-- Sun outer glow
+	local sunGlow = self:_add(pill(p, 0, 0, 0, 0, Color3.fromRGB(255, 255, 180), 0.0, 3))
+	sunGlow.Size     = UDim2.new(0.38, 0, 0, 0)
+	sunGlow.Size     = UDim2.fromOffset(220, 220)
 	sunGlow.AnchorPoint = Vector2.new(0.5, 0.5)
-	sunGlow.Position    = UDim2.new(0.5, 0, 0.35, 0)
+	sunGlow.Position    = UDim2.new(0.5, 0, 0.38, 0)
+	sunGlow.BackgroundTransparency = 0.3
 
 	-- Sun core
-	local sun = self:_add(pill(p, 0, 0, 0, 0, Color3.fromRGB(255, 230, 50), 0.05, 2))
-	sun.Size        = UDim2.fromOffset(120, 120)
+	local sun = self:_add(pill(p, 0, 0, 0, 0, Color3.fromRGB(255, 240, 60), 0.0, 4))
+	sun.Size        = UDim2.fromOffset(110, 110)
 	sun.AnchorPoint = Vector2.new(0.5, 0.5)
-	sun.Position    = UDim2.new(0.5, 0, 0.35, 0)
+	sun.Position    = UDim2.new(0.5, 0, 0.38, 0)
 
-	-- Sun rays (8 thin rectangles rotated)
+	-- Sun rays (8 rectangles, rotate around centre)
 	for i = 1, 8 do
-		local ray = self:_add(pill(p, 0, 0, 0, 0, Color3.fromRGB(255, 240, 100), 0.55, 1))
-		ray.Size        = UDim2.fromOffset(6, 140)
+		local ray = self:_add(sf(p, 0, 0, 0, 0, Color3.fromRGB(255, 235, 80), 0.2, 3))
+		ray.Size        = UDim2.fromOffset(8, 150)
 		ray.AnchorPoint = Vector2.new(0.5, 0.5)
-		ray.Position    = UDim2.new(0.5, 0, 0.35, 0)
+		ray.Position    = UDim2.new(0.5, 0, 0.38, 0)
 		ray.Rotation    = (i - 1) * 45
 	end
 
-	-- Clouds
-	local cloudData = {
-		{ x=0.08, y=0.15, w=160, wgt=0.6 },
-		{ x=0.55, y=0.10, w=220, wgt=0.45 },
-		{ x=0.25, y=0.24, w=130, wgt=0.7 },
-		{ x=0.72, y=0.28, w=180, wgt=0.5 },
-	}
-	for _, cd in ipairs(cloudData) do
-		local cloud = self:_add(pill(p, cd.x, cd.y, 0, 0, Color3.fromRGB(255, 255, 255), cd.wgt, 2))
-		cloud.Size = UDim2.fromOffset(cd.w, cd.w * 0.45)
-		local speed = rnd(0.003, 0.007)
-		self:_conn(RunService.Heartbeat:Connect(function(dt)
-			if not cloud.Parent then return end
-			local cx = cloud.Position.X.Scale + speed * dt
-			if cx > 1.1 then cx = -0.25 end
-			cloud.Position = UDim2.new(cx, 0, cloud.Position.Y.Scale, 0)
-		end))
-	end
-
-	-- Sun slow rotation
+	-- Rotating animation
 	local angle = 0
 	self:_conn(RunService.Heartbeat:Connect(function(dt)
 		if not sun.Parent then return end
-		angle = angle + dt * 3
+		angle += dt * 4
 		sunGlow.Rotation = angle
 	end))
+
+	-- Clouds
+	local clouds = {
+		{ x=0.05, y=0.14, w=200, alpha=0.0 },
+		{ x=0.60, y=0.09, w=260, alpha=0.0 },
+		{ x=0.22, y=0.25, w=160, alpha=0.05 },
+		{ x=0.72, y=0.30, w=210, alpha=0.05 },
+	}
+	for _, cd in ipairs(clouds) do
+		local cl = self:_add(pill(p, cd.x, cd.y, 0, 0, Color3.fromRGB(255, 255, 255), cd.alpha, 5))
+		cl.Size = UDim2.fromOffset(cd.w, cd.w * 0.40)
+		local speed = rnd(0.003, 0.006)
+		self:_conn(RunService.Heartbeat:Connect(function(dt)
+			if not cl.Parent then return end
+			local nx = cl.Position.X.Scale + speed * dt
+			if nx > 1.1 then nx = -0.28 end
+			cl.Position = UDim2.new(nx, 0, cl.Position.Y.Scale, 0)
+		end))
+	end
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- CALM — ocean horizon: gradient sea, distant mountains, slow waves
+-- CALM — serene ocean at midday: blue sky, layered sea, waves
 -- ═══════════════════════════════════════════════════════════════════════════════
-
 function SceneLayer:_scene_calm()
 	local p = self._parent
 
-	-- Sea
-	self:_add(frame(p, 0, 0.60, 1, 0.40, Color3.fromRGB(60, 140, 200), 0.15, 1))
-	-- Sea shimmer
-	self:_add(frame(p, 0, 0.60, 1, 0.04, Color3.fromRGB(160, 220, 255), 0.5, 2))
+	-- Sky
+	self:_add(sf(p, 0, 0, 1, 0.60, Color3.fromRGB(120, 195, 240), 0.0, 2))
+	-- Deep ocean
+	self:_add(sf(p, 0, 0.55, 1, 0.45, Color3.fromRGB(30, 110, 180), 0.0, 2))
+	-- Lighter mid-ocean
+	self:_add(sf(p, 0, 0.58, 1, 0.12, Color3.fromRGB(60, 155, 210), 0.1, 3))
+	-- Horizon shimmer
+	self:_add(pill(p, 0, 0.54, 1, 0.04, Color3.fromRGB(200, 235, 255), 0.2, 4))
 
-	-- Distant mountains (layered)
+	-- Distant mountains
 	local mtns = {
-		{ col = Color3.fromRGB(100, 160, 200), y = 0.48, peaks = 4, wgt = 0.35 },
-		{ col = Color3.fromRGB(70,  130, 180), y = 0.54, peaks = 3, wgt = 0.45 },
+		{col=Color3.fromRGB(90,155,200), y=0.38, w=0.32, h=0.22, x=0.02},
+		{col=Color3.fromRGB(70,135,185), y=0.42, w=0.28, h=0.18, x=0.30},
+		{col=Color3.fromRGB(55,120,175), y=0.40, w=0.36, h=0.20, x=0.55},
+		{col=Color3.fromRGB(75,140,195), y=0.44, w=0.25, h=0.15, x=0.78},
 	}
 	for _, m in ipairs(mtns) do
-		-- Simple triangle approximation using a tall pill
-		for i = 1, m.peaks do
-			local mf = self:_add(pill(p, (i-1)/m.peaks + rnd(-0.03,0.03), m.y, 0, 0, m.col, m.wgt, 1, 6))
-			mf.Size = UDim2.fromOffset(rndI(120,200), rndI(80,130))
-		end
+		self:_add(rounded(p, m.x, m.y, m.w, m.h, m.col, 0.0, 3, 8))
 	end
 
-	-- Waves (slow horizontal lines)
-	for i = 1, 5 do
-		local wy = 0.62 + i * 0.055
-		local wv = self:_add(pill(p, 0, wy, rnd(0.3, 0.6), 0, Color3.fromRGB(180, 230, 255), 0.6, 2))
-		wv.Size = UDim2.new(rnd(0.3, 0.6), 0, 0, 3)
-		local speed = rnd(-0.004, 0.004)
+	-- Waves (horizontal pill strips)
+	for i = 1, 6 do
+		local wy = 0.60 + i * 0.052
+		local ww = rnd(0.25, 0.55)
+		local wx0 = rnd(0, 1 - ww)
+		local wv  = self:_add(pill(p, wx0, wy, ww, 0, Color3.fromRGB(190, 230, 255), 0.3, 4))
+		wv.Size = UDim2.new(ww, 0, 0, 4)
+		local spd = rnd(-0.005, 0.005)
 		self:_conn(RunService.Heartbeat:Connect(function(dt)
 			if not wv.Parent then return end
-			local wx = wv.Position.X.Scale + speed * dt
-			if wx > 1.1 then wx = -0.7 elseif wx < -0.7 then wx = 1.1 end
-			wv.Position = UDim2.new(wx, 0, wy, 0)
+			local nx = wv.Position.X.Scale + spd * dt
+			if nx > 1.1 then nx = -0.6 elseif nx < -0.6 then nx = 1.1 end
+			wv.Position = UDim2.new(nx, 0, wy, 0)
 		end))
 	end
 
-	-- Fluffy clouds (calm, barely moving)
+	-- Sun (smaller, high up)
+	local sun = self:_add(pill(p, 0, 0, 0, 0, Color3.fromRGB(255, 245, 180), 0.0, 5))
+	sun.Size     = UDim2.fromOffset(70, 70)
+	sun.Position = UDim2.new(0.82, 0, 0.07, 0)
+
+	-- Slow clouds
 	for i = 1, 3 do
-		local cx = rnd(0.05, 0.85)
-		local cy = rnd(0.08, 0.30)
-		local cw = rndI(120, 200)
-		local cl = self:_add(pill(p, cx, cy, 0, 0, Color3.fromRGB(240, 250, 255), 0.25, 2))
-		cl.Size = UDim2.fromOffset(cw, cw * 0.4)
+		local cy = rnd(0.05, 0.28)
+		local cl = self:_add(pill(p, rnd(0, 0.8), cy, 0, 0, Color3.fromRGB(255, 255, 255), 0.1, 5))
+		cl.Size = UDim2.fromOffset(rndI(130, 210), rndI(42, 65))
 		local spd = rnd(0.001, 0.003)
 		self:_conn(RunService.Heartbeat:Connect(function(dt)
 			if not cl.Parent then return end
@@ -201,363 +210,402 @@ function SceneLayer:_scene_calm()
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- EXCITED — neon city at dusk: skyline silhouette, streaking lights
+-- EXCITED — neon-lit night city: purple sky, buildings, coloured streaks
 -- ═══════════════════════════════════════════════════════════════════════════════
-
 function SceneLayer:_scene_excited()
 	local p = self._parent
 
-	-- Horizon glow
-	self:_add(pill(p, 0, 0.65, 1, 0.08, Color3.fromRGB(255, 80, 200), 0.25, 1, 0))
+	-- Night sky
+	self:_add(sf(p, 0, 0, 1, 1, Color3.fromRGB(55, 15, 90), 0.0, 2))
+	-- Horizon neon glow
+	self:_add(pill(p, 0, 0.62, 1, 0.08, Color3.fromRGB(220, 50, 200), 0.1, 3))
+	self:_add(pill(p, 0, 0.65, 1, 0.06, Color3.fromRGB(80, 180, 255), 0.15, 3))
 
-	-- Skyline buildings (dark silhouette)
-	local buildings = {
-		{x=0.0,  h=0.28, w=0.07}, {x=0.06, h=0.36, w=0.05},
-		{x=0.11, h=0.22, w=0.09}, {x=0.20, h=0.42, w=0.06},
-		{x=0.26, h=0.30, w=0.08}, {x=0.34, h=0.48, w=0.05},
-		{x=0.60, h=0.32, w=0.06}, {x=0.66, h=0.26, w=0.08},
-		{x=0.74, h=0.44, w=0.05}, {x=0.79, h=0.20, w=0.10},
-		{x=0.89, h=0.36, w=0.06}, {x=0.95, h=0.28, w=0.07},
+	-- Ground
+	self:_add(sf(p, 0, 0.78, 1, 0.22, Color3.fromRGB(15, 5, 35), 0.0, 2))
+
+	-- Buildings silhouette
+	local blds = {
+		{x=0.00, h=0.30, w=0.08}, {x=0.07, h=0.40, w=0.06},
+		{x=0.13, h=0.24, w=0.09}, {x=0.22, h=0.46, w=0.07},
+		{x=0.29, h=0.33, w=0.08}, {x=0.37, h=0.52, w=0.06},
+		{x=0.58, h=0.35, w=0.07}, {x=0.65, h=0.28, w=0.09},
+		{x=0.74, h=0.48, w=0.06}, {x=0.80, h=0.22, w=0.10},
+		{x=0.90, h=0.38, w=0.07}, {x=0.97, h=0.30, w=0.07},
 	}
-	for _, b in ipairs(buildings) do
-		self:_add(frame(p, b.x, 1 - b.h, b.w, b.h, Color3.fromRGB(20, 10, 40), 0.0, 2))
-		-- Window lights
-		for row = 1, rndI(2, 5) do
+	for _, b in ipairs(blds) do
+		self:_add(sf(p, b.x, 1 - b.h, b.w, b.h, Color3.fromRGB(10, 5, 22), 0.0, 3))
+		-- Coloured window lights
+		for row = 1, rndI(3, 6) do
 			for col_ = 1, rndI(2, 4) do
-				if math.random() > 0.45 then
-					local wx = b.x + col_ * (b.w / 5) - 0.005
-					local wy = 1 - b.h + row * 0.06
-					self:_add(frame(p, wx, wy, 0.008, 0.012, Color3.fromRGB(255, 230, 120), 0.1, 3))
+				if math.random() > 0.4 then
+					local winColors = {
+						Color3.fromRGB(255, 230, 100),
+						Color3.fromRGB(200, 100, 255),
+						Color3.fromRGB(80, 200, 255),
+					}
+					local wx2 = b.x + col_ * (b.w / 5.5)
+					local wy2 = 1 - b.h + row * 0.055
+					self:_add(sf(p, wx2, wy2, 0.009, 0.014, winColors[rndI(1,3)], 0.0, 4))
 				end
 			end
 		end
 	end
 
-	-- Neon streaks flying across
-	for _ = 1, 5 do
-		local sy   = rnd(0.2, 0.65)
-		local col  = ({
-			Color3.fromRGB(255,80,200),
-			Color3.fromRGB(80,200,255),
-			Color3.fromRGB(255,220,50),
-			Color3.fromRGB(200,100,255),
-		})[rndI(1,4)]
-
-		local streak = self:_add(pill(p, rnd(-0.5, 0), sy, 0, 0, col, 0.25, 3))
-		streak.Size = UDim2.new(rnd(0.1, 0.25), 0, 0, 3)
-		local speed = rnd(0.2, 0.45)
+	-- Neon streaks across screen
+	local streakCols = {
+		Color3.fromRGB(255, 60, 200),
+		Color3.fromRGB(60, 200, 255),
+		Color3.fromRGB(255, 220, 40),
+		Color3.fromRGB(160, 80, 255),
+	}
+	for _ = 1, 6 do
+		local sy  = rnd(0.18, 0.70)
+		local scl = streakCols[rndI(1,4)]
+		local stk = self:_add(pill(p, rnd(-0.6, 0), sy, 0, 0, scl, 0.0, 5))
+		stk.Size = UDim2.new(rnd(0.10, 0.28), 0, 0, 3)
+		local spd = rnd(0.18, 0.42)
 		self:_conn(RunService.Heartbeat:Connect(function(dt)
-			if not streak.Parent then return end
-			local nx = streak.Position.X.Scale + speed * dt
-			if nx > 1.3 then
-				nx = rnd(-0.5, -0.1)
-				streak.Size = UDim2.new(rnd(0.08, 0.22), 0, 0, 3)
+			if not stk.Parent then return end
+			local nx = stk.Position.X.Scale + spd * dt
+			if nx > 1.35 then
+				nx = rnd(-0.6, -0.08)
+				stk.Size = UDim2.new(rnd(0.08, 0.26), 0, 0, 3)
 			end
-			streak.Position = UDim2.new(nx, 0, sy, 0)
+			stk.Position = UDim2.new(nx, 0, sy, 0)
 		end))
 	end
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- ANXIOUS — misty forest: layered trees in fog, fireflies
+-- ANXIOUS — misty green forest: layered trees, soft ground mist, fireflies
 -- ═══════════════════════════════════════════════════════════════════════════════
-
 function SceneLayer:_scene_anxious()
 	local p = self._parent
 
-	-- Ground mist
-	self:_add(pill(p, 0, 0.75, 1, 0.25, Color3.fromRGB(160, 210, 190), 0.4, 1, 0))
+	-- Sky (soft sage-green)
+	self:_add(sf(p, 0, 0, 1, 1, Color3.fromRGB(140, 195, 165), 0.0, 2))
+	-- Mist layers
+	self:_add(pill(p, 0, 0.65, 1, 0.18, Color3.fromRGB(200, 235, 215), 0.1, 5))
+	self:_add(pill(p, 0, 0.72, 1, 0.15, Color3.fromRGB(220, 245, 230), 0.15, 5))
 
-	-- Tree layers (back to front, lightening)
-	local layers = {
-		{ col = Color3.fromRGB( 30,  80,  55), alpha = 0.15, y = 0.35, count = 8 },
-		{ col = Color3.fromRGB( 50, 110,  75), alpha = 0.25, y = 0.45, count = 7 },
-		{ col = Color3.fromRGB( 70, 140,  95), alpha = 0.35, y = 0.55, count = 6 },
+	-- Ground
+	self:_add(sf(p, 0, 0.82, 1, 0.18, Color3.fromRGB(60, 120, 80), 0.0, 2))
+
+	-- Tree layers — back to front
+	local treeLayers = {
+		{col=Color3.fromRGB(40, 100, 65),  y=0.30, count=9,  wScale=0.10, hScale=0.42, alpha=0.0},
+		{col=Color3.fromRGB(55, 125, 80),  y=0.40, count=8,  wScale=0.12, hScale=0.38, alpha=0.0},
+		{col=Color3.fromRGB(70, 150, 95),  y=0.50, count=7,  wScale=0.14, hScale=0.34, alpha=0.0},
 	}
-	for _, l in ipairs(layers) do
+	for _, l in ipairs(treeLayers) do
 		for i = 1, l.count do
-			local tw_ = rnd(0.06, 0.12)
-			local th  = rnd(0.25, 0.42)
-			local tx  = (i - 1) / l.count + rnd(-0.02, 0.02)
+			local tx  = (i - 1) / l.count + rnd(-0.015, 0.015)
+			local tw_ = l.wScale + rnd(-0.02, 0.02)
+			local th  = l.hScale + rnd(-0.04, 0.04)
 			-- Trunk
-			self:_add(frame(p, tx + tw_*0.4, l.y + th*0.5, tw_*0.2, th*0.55, l.col, l.alpha, 2))
+			self:_add(sf(p, tx + tw_*0.42, l.y + th*0.45, tw_*0.16, th*0.55, l.col, l.alpha, 3))
 			-- Canopy (pill)
-			local can = self:_add(pill(p, tx, l.y, tw_, th, l.col, l.alpha, 2))
-			can.Size = UDim2.new(tw_, 0, th, 0)
+			self:_add(pill(p, tx, l.y, tw_, th, l.col, l.alpha, 3))
 		end
 	end
 
-	-- Fireflies (glowing dots floating gently)
-	for i = 1, 12 do
-		local fx = rnd(0.05, 0.95)
-		local fy = rnd(0.50, 0.80)
-		local ff = self:_add(pill(p, fx, fy, 0, 0, Color3.fromRGB(200, 255, 180), 0.2, 4))
+	-- Fireflies
+	for _ = 1, 14 do
+		local fx0 = rnd(0.04, 0.96)
+		local fy0 = rnd(0.48, 0.80)
+		local ff  = self:_add(pill(p, fx0, fy0, 0, 0, Color3.fromRGB(200, 255, 160), 0.0, 6))
 		ff.Size = UDim2.fromOffset(10, 10)
-		local phase = rnd(0, math.pi*2)
-		local sx = rnd(-0.004, 0.004)
+		local phase = rnd(0, math.pi * 2)
+		local sx    = rnd(-0.003, 0.003)
 		self:_conn(RunService.Heartbeat:Connect(function(dt)
 			if not ff.Parent then return end
-			phase += dt * rnd(0.8, 1.8)
+			phase += dt * rnd(1.0, 2.2)
 			local nx = ff.Position.X.Scale + sx * dt
 			if nx < 0.02 then nx = 0.02; sx = math.abs(sx)
 			elseif nx > 0.98 then nx = 0.98; sx = -math.abs(sx) end
-			local ny = fy + math.sin(phase) * 0.04
+			local ny = fy0 + math.sin(phase) * 0.04
 			ff.Position              = UDim2.new(nx, 0, ny, 0)
-			ff.BackgroundTransparency = 0.1 + math.abs(math.sin(phase)) * 0.65
+			ff.BackgroundTransparency = math.abs(math.sin(phase * 0.5)) * 0.7
 		end))
 	end
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- SAD — gentle rain on a garden: falling rain streaks, soft flower silhouettes
+-- SAD — purple dusk with falling rain over a flower garden
 -- ═══════════════════════════════════════════════════════════════════════════════
-
 function SceneLayer:_scene_sad()
 	local p = self._parent
 
+	-- Lilac sky
+	self:_add(sf(p, 0, 0, 1, 1, Color3.fromRGB(170, 140, 200), 0.0, 2))
+	-- Dusk gradient (darker at top)
+	self:_add(sf(p, 0, 0, 1, 0.45, Color3.fromRGB(100, 80, 150), 0.15, 3))
 	-- Ground
-	self:_add(frame(p, 0, 0.78, 1, 0.22, Color3.fromRGB(160, 130, 190), 0.5, 1))
+	self:_add(sf(p, 0, 0.80, 1, 0.20, Color3.fromRGB(100, 70, 140), 0.0, 2))
 
-	-- Flower silhouettes
-	local flowerEmojis = {"🌸","🌷","🌺","🌼"}
-	for i = 1, 8 do
-		local fe = self:_add(emoji(p, (i-1)*0.13 + rnd(-0.02,0.02), rnd(0.68,0.76),
-			rndI(28,48), flowerEmojis[rndI(1,#flowerEmojis)], 3))
-		-- Gentle sway
+	-- Flower garden silhouette
+	local flowers = {"🌸","🌷","🌺","🌼","🌸","🌷","🌺","🌼"}
+	for i, emoji in ipairs(flowers) do
+		local fe = self:_add(emojiLabel(p, (i-1)*0.127 + rnd(-0.01,0.01), rnd(0.68,0.75), rndI(32,52), emoji, 4))
 		local phase = rnd(0, math.pi*2)
 		local startY = fe.Position.Y.Scale
 		self:_conn(RunService.Heartbeat:Connect(function(dt)
 			if not fe.Parent then return end
-			phase += dt * 0.7
-			fe.Rotation = math.sin(phase) * 6
-			fe.Position = UDim2.new(fe.Position.X.Scale, 0, startY + math.sin(phase*0.5)*0.005, 0)
+			phase += dt * 0.75
+			fe.Rotation = math.sin(phase) * 7
+			fe.Position = UDim2.new(fe.Position.X.Scale, 0, startY + math.sin(phase*0.45)*0.006, 0)
 		end))
 	end
 
-	-- Rain (short vertical pill streaks)
-	for i = 1, 30 do
-		local rx = rnd(0, 1)
-		local ry = rnd(-0.2, 1.0)
-		local rain = self:_add(pill(p, rx, ry, 0, 0, Color3.fromRGB(180, 200, 230), 0.55, 3))
-		rain.Size = UDim2.fromOffset(2, rndI(12, 22))
-		local speed = rnd(0.25, 0.55)
-		local drift = rnd(-0.012, 0.012)
+	-- Rain
+	for _ = 1, 35 do
+		local rx0 = rnd(0, 1)
+		local ry0 = rnd(-0.25, 1.0)
+		local rain = self:_add(pill(p, rx0, ry0, 0, 0, Color3.fromRGB(190, 165, 225), 0.2, 5))
+		rain.Size = UDim2.fromOffset(2, rndI(14, 26))
+		local spd   = rnd(0.28, 0.60)
+		local drift = rnd(-0.010, 0.010)
 		self:_conn(RunService.Heartbeat:Connect(function(dt)
 			if not rain.Parent then return end
-			local ny = rain.Position.Y.Scale + speed * dt
+			local ny = rain.Position.Y.Scale + spd * dt
 			local nx = rain.Position.X.Scale + drift * dt
-			if ny > 1.05 then
-				ny = rnd(-0.2, -0.02)
-				nx = rnd(0, 1)
-			end
+			if ny > 1.06 then ny = rnd(-0.2, -0.02); nx = rnd(0, 1) end
 			rain.Position = UDim2.new(nx, 0, ny, 0)
 		end))
 	end
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- LONELY — deep night sky: stars twinkling, lone crescent moon
+-- LONELY — deep space night: lots of twinkling stars, crescent moon, shooting star
 -- ═══════════════════════════════════════════════════════════════════════════════
-
 function SceneLayer:_scene_lonely()
 	local p = self._parent
 
-	-- Ground (dark plain)
-	self:_add(frame(p, 0, 0.80, 1, 0.20, Color3.fromRGB(15, 20, 55), 0.2, 1))
+	-- Deep dark blue-navy sky fill
+	self:_add(sf(p, 0, 0, 1, 1, Color3.fromRGB(8, 12, 50), 0.0, 2))
+	-- Purple nebula hint
+	self:_add(pill(p, 0.15, 0.10, 0.70, 0.45, Color3.fromRGB(60, 30, 100), 0.55, 3))
+	-- Ground silhouette
+	self:_add(sf(p, 0, 0.83, 1, 0.17, Color3.fromRGB(10, 14, 40), 0.0, 2))
 
-	-- Crescent moon
-	-- Outer circle
-	local moonOut = self:_add(pill(p, 0, 0, 0, 0, Color3.fromRGB(220, 230, 255), 0.05, 2))
+	-- Crescent moon (outer circle)
+	local moonOut = self:_add(pill(p, 0, 0, 0, 0, Color3.fromRGB(230, 238, 255), 0.0, 4))
 	moonOut.Size     = UDim2.fromOffset(90, 90)
-	moonOut.AnchorPoint = Vector2.new(0, 0)
-	moonOut.Position    = UDim2.new(0.72, 0, 0.08, 0)
-	-- Inner "bite" circle (same as background colour)
-	local moonIn = self:_add(pill(p, 0, 0, 0, 0, Color3.fromRGB(18, 24, 72), 0.0, 3))
+	moonOut.Position = UDim2.new(0.73, 0, 0.07, 0)
+	-- "Bite" circle same colour as sky
+	local moonIn  = self:_add(pill(p, 0, 0, 0, 0, Color3.fromRGB(8, 12, 50), 0.0, 5))
 	moonIn.Size     = UDim2.fromOffset(72, 72)
-	moonIn.Position = UDim2.new(0.74, 0, 0.06, 0)
+	moonIn.Position = UDim2.new(0.755, 0, 0.052, 0)
 
-	-- Stars (static twinkling)
-	for i = 1, 50 do
+	-- Stars
+	for _ = 1, 55 do
 		local sx = rnd(0.01, 0.99)
-		local sy = rnd(0.01, 0.72)
-		local sz = rndI(3, 8)
-		local st = self:_add(pill(p, sx, sy, 0, 0, Color3.fromRGB(200, 215, 255), 0.1, 2))
+		local sy = rnd(0.01, 0.76)
+		local sz = rndI(3, 9)
+		local st = self:_add(pill(p, sx, sy, 0, 0, Color3.fromRGB(210, 220, 255), 0.0, 4))
 		st.Size = UDim2.fromOffset(sz, sz)
 		local phase = rnd(0, math.pi*2)
 		self:_conn(RunService.Heartbeat:Connect(function(dt)
 			if not st.Parent then return end
-			phase += dt * rnd(0.4, 1.2)
-			st.BackgroundTransparency = 0.05 + math.abs(math.sin(phase)) * 0.75
+			phase += dt * rnd(0.5, 1.5)
+			st.BackgroundTransparency = 0.05 + math.abs(math.sin(phase)) * 0.8
 		end))
 	end
 
-	-- Shooting star occasionally
-	local ssPhase = rnd(0, 10)
-	local ss = self:_add(pill(p, -0.1, rnd(0.1, 0.4), 0, 0, Color3.fromRGB(255, 255, 255), 0.0, 3))
-	ss.Size = UDim2.fromOffset(80, 2)
-	ss.Rotation = 25
+	-- Shooting star
+	local ssTimer = rnd(2, 6)
+	local ss = self:_add(pill(p, -0.15, rnd(0.08, 0.40), 0, 0, Color3.fromRGB(255, 255, 220), 1.0, 5))
+	ss.Size = UDim2.fromOffset(90, 2); ss.Rotation = 28
+	local ssElapsed = 0
 	self:_conn(RunService.Heartbeat:Connect(function(dt)
 		if not ss.Parent then return end
-		ssPhase += dt
-		local cycle = ssPhase % 8
-		if cycle < 1.5 then
-			ss.BackgroundTransparency = 0.1 + math.abs(math.sin(cycle * math.pi)) * 0.5
-			local nx = -0.1 + cycle / 1.5 * 1.3
-			local ny = ss.Position.Y.Scale + dt * 0.08
-			ss.Position = UDim2.new(nx, 0, ny, 0)
+		ssElapsed += dt
+		if ssElapsed < ssTimer then return end
+		local progress = ssElapsed - ssTimer
+		if progress < 1.6 then
+			ss.BackgroundTransparency = math.max(0, 0.1 - progress * 0.06)
+			ss.Position = UDim2.new(-0.15 + progress / 1.6 * 1.5, 0, ss.Position.Y.Scale + dt * 0.1, 0)
 		else
 			ss.BackgroundTransparency = 1
-			if cycle > 7.5 then
-				ss.Position = UDim2.new(rnd(-0.2, 0), rnd(0.05, 0.4), 0, 0)
+			if progress > 2.2 then
+				ssTimer   = ssElapsed + rnd(3, 8)
+				ss.Position = UDim2.new(rnd(-0.2, 0), rnd(0.05, 0.40), 0, 0)
 			end
 		end
 	end))
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- ANGRY — volcanic eruption: lava glow, rising ash particles
+-- ANGRY — volcanic eruption: red-orange sky, volcano silhouette, rising embers
 -- ═══════════════════════════════════════════════════════════════════════════════
-
 function SceneLayer:_scene_angry()
 	local p = self._parent
 
-	-- Lava ground glow
-	self:_add(frame(p, 0, 0.75, 1, 0.25, Color3.fromRGB(200, 40, 10), 0.15, 1))
-	self:_add(pill(p, 0, 0.73, 1, 0.05, Color3.fromRGB(255, 140, 20), 0.35, 2, 0))
+	-- Dark red-orange sky
+	self:_add(sf(p, 0, 0, 1, 1, Color3.fromRGB(160, 30, 10), 0.0, 2))
+	-- Lava horizon glow
+	self:_add(pill(p, 0, 0.55, 1, 0.18, Color3.fromRGB(255, 100, 0), 0.0, 3))
+	self:_add(pill(p, 0, 0.65, 1, 0.10, Color3.fromRGB(255, 160, 0), 0.1, 3))
 
-	-- Volcano silhouette (two overlapping pills)
-	local vol = self:_add(pill(p, 0.30, 0.35, 0.40, 0.50, Color3.fromRGB(30, 15, 10), 0.05, 2, 8))
-	vol.Size = UDim2.new(0.40, 0, 0.50, 0)
-	-- Crater opening (lighter)
-	self:_add(pill(p, 0.38, 0.33, 0.24, 0.06, Color3.fromRGB(255, 80, 20), 0.4, 3, 999))
-
-	-- Lava streams
-	for i = 1, 3 do
-		local lx = 0.42 + i * 0.04
-		local lava = self:_add(pill(p, lx, 0.38, 0, 0, Color3.fromRGB(255, 120, 0), 0.3, 3, 4))
-		lava.Size = UDim2.fromOffset(6, rndI(50, 100))
+	-- Lava ground
+	self:_add(sf(p, 0, 0.80, 1, 0.20, Color3.fromRGB(180, 40, 0), 0.0, 2))
+	-- Lava flow lines
+	for i = 1, 4 do
+		self:_add(pill(p, rnd(0,1), rnd(0.78, 0.85), rnd(0.1, 0.3), 0,
+			Color3.fromRGB(255, 120, 0), 0.0, 3))
 	end
 
-	-- Ash/embers rising
-	for i = 1, 20 do
-		local ex = rnd(0.35, 0.65)
-		local ey = rnd(0.30, 0.75)
-		local em = self:_add(pill(p, ex, ey, 0, 0, Color3.fromRGB(255, rndI(60,160), 0), 0.3, 4))
-		em.Size = UDim2.fromOffset(rndI(4, 12), rndI(4, 12))
-		local speed = rnd(0.04, 0.14)
+	-- Volcano shape (two overlapping rounded frames)
+	self:_add(rounded(p, 0.28, 0.30, 0.44, 0.55, Color3.fromRGB(25, 10, 5), 0.0, 3, 12))
+	self:_add(rounded(p, 0.34, 0.25, 0.32, 0.20, Color3.fromRGB(20, 8, 3), 0.0, 4, 12))
+	-- Crater glow
+	self:_add(pill(p, 0, 0, 0, 0, Color3.fromRGB(255, 80, 0), 0.1, 5)).Size = UDim2.fromOffset(80, 22)
+	do
+		local cr = self._objects[#self._objects]
+		cr.Position = UDim2.new(0.37, 0, 0.25, 0)
+	end
+
+	-- Embers rising
+	for _ = 1, 22 do
+		local ex0 = rnd(0.33, 0.67)
+		local ey0 = rnd(0.25, 0.70)
+		local ec  = Color3.fromRGB(255, rndI(60, 160), 0)
+		local em  = self:_add(pill(p, ex0, ey0, 0, 0, ec, 0.0, 5))
+		em.Size = UDim2.fromOffset(rndI(5, 13), rndI(5, 13))
+		local spd   = rnd(0.04, 0.15)
 		local drift = rnd(-0.02, 0.02)
 		local phase = rnd(0, math.pi*2)
 		self:_conn(RunService.Heartbeat:Connect(function(dt)
 			if not em.Parent then return end
-			phase += dt * rnd(1.5, 3)
-			local ny = em.Position.Y.Scale - speed * dt
-			local nx = em.Position.X.Scale + drift * dt
-			if ny < -0.05 then
-				ny = rnd(0.30, 0.75)
-				nx = rnd(0.35, 0.65)
-			end
+			phase += dt * rnd(2, 4)
+			local ny = em.Position.Y.Scale - spd * dt
+			local nx = em.Position.X.Scale + drift * dt + math.sin(phase) * 0.004
+			if ny < -0.05 then ny = rnd(0.25, 0.70); nx = rnd(0.33, 0.67) end
 			em.Position              = UDim2.new(nx, 0, ny, 0)
-			em.BackgroundTransparency = 0.2 + math.abs(math.sin(phase)) * 0.6
+			em.BackgroundTransparency = math.abs(math.sin(phase)) * 0.55
+		end))
+	end
+
+	-- Smoke puffs
+	for _ = 1, 5 do
+		local sx0 = rnd(0.36, 0.60)
+		local sy0 = rnd(0.18, 0.28)
+		local sm  = self:_add(pill(p, sx0, sy0, 0, 0, Color3.fromRGB(80, 40, 20), 0.2, 4))
+		sm.Size = UDim2.fromOffset(rndI(30, 65), rndI(30, 65))
+		local spd = rnd(0.008, 0.018)
+		self:_conn(RunService.Heartbeat:Connect(function(dt)
+			if not sm.Parent then return end
+			local ny = sm.Position.Y.Scale - spd * dt
+			if ny < -0.08 then ny = rnd(0.18, 0.30) end
+			sm.Position              = UDim2.new(sm.Position.X.Scale, 0, ny, 0)
+			sm.BackgroundTransparency = 0.2 + (0.30 - ny) * 1.2
 		end))
 	end
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- STRESSED — rainy dusk: city skyline with rain, muted grey
+-- STRESSED — soft rainy hills: sage-green rolling hills, drizzle, falling leaves
 -- ═══════════════════════════════════════════════════════════════════════════════
-
 function SceneLayer:_scene_stressed()
 	local p = self._parent
 
+	-- Overcast grey-green sky
+	self:_add(sf(p, 0, 0, 1, 1, Color3.fromRGB(100, 150, 115), 0.0, 2))
+	-- Cloud layer
+	self:_add(sf(p, 0, 0, 1, 0.45, Color3.fromRGB(140, 180, 155), 0.1, 3))
 	-- Ground
-	self:_add(frame(p, 0, 0.80, 1, 0.20, Color3.fromRGB(50, 90, 65), 0.35, 1))
+	self:_add(sf(p, 0, 0.78, 1, 0.22, Color3.fromRGB(55, 110, 70), 0.0, 2))
 
 	-- Rolling hills
-	for i = 1, 4 do
-		local hill = self:_add(pill(p, (i-1)*0.26 - 0.05, rnd(0.62, 0.72), rnd(0.3,0.5), rnd(0.18,0.28),
-			Color3.fromRGB(55, 120, 80), 0.4, 2, 8))
+	local hills = {
+		{x=-0.05, y=0.55, w=0.40, h=0.28, col=Color3.fromRGB(70, 135, 90)},
+		{x=0.28,  y=0.60, w=0.38, h=0.22, col=Color3.fromRGB(80, 145, 98)},
+		{x=0.60,  y=0.52, w=0.45, h=0.30, col=Color3.fromRGB(65, 128, 85)},
+		{x=0.85,  y=0.58, w=0.30, h=0.24, col=Color3.fromRGB(75, 140, 92)},
+	}
+	for _, h in ipairs(hills) do
+		self:_add(rounded(p, h.x, h.y, h.w, h.h, h.col, 0.0, 3, 999))
 	end
 
-	-- Light drizzle (finer than sad scene)
-	for i = 1, 22 do
-		local rx = rnd(0, 1)
-		local ry = rnd(-0.1, 1.0)
-		local rain = self:_add(pill(p, rx, ry, 0, 0, Color3.fromRGB(170, 210, 185), 0.6, 3))
-		rain.Size = UDim2.fromOffset(1, rndI(8, 16))
-		local speed = rnd(0.18, 0.38)
+	-- Drizzle
+	for _ = 1, 28 do
+		local rx = rnd(0, 1); local ry = rnd(-0.15, 1.0)
+		local rain = self:_add(pill(p, rx, ry, 0, 0, Color3.fromRGB(170, 210, 185), 0.15, 5))
+		rain.Size = UDim2.fromOffset(1, rndI(9, 18))
+		local spd = rnd(0.18, 0.40)
 		self:_conn(RunService.Heartbeat:Connect(function(dt)
 			if not rain.Parent then return end
-			local ny = rain.Position.Y.Scale + speed * dt
-			if ny > 1.05 then ny = rnd(-0.1, -0.01) end
+			local ny = rain.Position.Y.Scale + spd * dt
+			if ny > 1.05 then ny = rnd(-0.15, -0.01) end
 			rain.Position = UDim2.new(rain.Position.X.Scale, 0, ny, 0)
 		end))
 	end
 
-	-- Floating leaf particles
-	for i = 1, 6 do
-		local leaf = self:_add(emoji(p, rnd(0.05,0.95), rnd(0.1,0.7), rndI(18,28), "🍃", 3))
-		local sx = rnd(-0.02, -0.005)
-		local sy = rnd(0.01, 0.04)
+	-- Drifting leaves
+	for _ = 1, 7 do
+		local lx0 = rnd(0.05, 0.95); local ly0 = rnd(0.08, 0.65)
+		local leaf = self:_add(emojiLabel(p, lx0, ly0, rndI(20, 32), "🍃", 4))
+		local spx  = rnd(-0.015, -0.005); local spy = rnd(0.008, 0.030)
 		local phase = rnd(0, math.pi*2)
 		self:_conn(RunService.Heartbeat:Connect(function(dt)
 			if not leaf.Parent then return end
 			phase += dt * 0.9
-			local nx = leaf.Position.X.Scale + sx * dt
-			local ny = leaf.Position.Y.Scale + sy * dt
-			if nx < -0.05 then nx = 1.05 end
-			if ny > 0.95 then ny = rnd(0.1, 0.3); nx = rnd(0.2, 0.9) end
+			local nx = leaf.Position.X.Scale + spx * dt
+			local ny = leaf.Position.Y.Scale + spy * dt
+			if nx < -0.06 then nx = 1.06 end
+			if ny > 0.95 then ny = rnd(0.05, 0.35); nx = rnd(0.1, 0.9) end
 			leaf.Position = UDim2.new(nx, 0, ny, 0)
-			leaf.Rotation = math.sin(phase) * 20
+			leaf.Rotation = math.sin(phase) * 22
 		end))
 	end
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- NEUTRAL — twilight: simple horizon glow, a few drifting clouds
+-- NEUTRAL — twilight: blue-purple gradient, moon, twinkling stars, slow clouds
 -- ═══════════════════════════════════════════════════════════════════════════════
-
 function SceneLayer:_scene_neutral()
 	local p = self._parent
 
-	-- Horizon glow strip
-	self:_add(pill(p, 0, 0.56, 1, 0.08, Color3.fromRGB(120, 160, 220), 0.35, 1, 0))
-	-- Ground silhouette
-	self:_add(frame(p, 0, 0.72, 1, 0.28, Color3.fromRGB(35, 50, 90), 0.3, 1))
+	-- Twilight sky
+	self:_add(sf(p, 0, 0, 1, 1, Color3.fromRGB(55, 70, 140), 0.0, 2))
+	-- Horizon glow
+	self:_add(pill(p, 0, 0.58, 1, 0.10, Color3.fromRGB(120, 140, 210), 0.2, 3))
+	-- Ground
+	self:_add(sf(p, 0, 0.78, 1, 0.22, Color3.fromRGB(30, 40, 90), 0.0, 2))
 
 	-- Moon
-	local moon = self:_add(pill(p, 0, 0, 0, 0, Color3.fromRGB(240, 245, 255), 0.08, 2))
-	moon.Size     = UDim2.fromOffset(60, 60)
-	moon.Position = UDim2.new(0.78, 0, 0.12, 0)
+	local moon = self:_add(pill(p, 0, 0, 0, 0, Color3.fromRGB(240, 245, 255), 0.0, 4))
+	moon.Size     = UDim2.fromOffset(65, 65)
+	moon.Position = UDim2.new(0.80, 0, 0.10, 0)
 
 	-- Stars
-	for i = 1, 30 do
-		local st = self:_add(pill(p, rnd(0,1), rnd(0,0.55), 0, 0, Color3.fromRGB(200, 215, 255), 0.2, 2))
-		st.Size = UDim2.fromOffset(rndI(2,6), rndI(2,6))
+	for _ = 1, 38 do
+		local sx = rnd(0.01, 0.99); local sy = rnd(0.01, 0.60)
+		local sz = rndI(3, 8)
+		local st = self:_add(pill(p, sx, sy, 0, 0, Color3.fromRGB(200, 215, 255), 0.1, 4))
+		st.Size = UDim2.fromOffset(sz, sz)
 		local phase = rnd(0, math.pi*2)
 		self:_conn(RunService.Heartbeat:Connect(function(dt)
 			if not st.Parent then return end
-			phase += dt * rnd(0.5, 1.3)
-			st.BackgroundTransparency = 0.1 + math.abs(math.sin(phase)) * 0.7
+			phase += dt * rnd(0.5, 1.4)
+			st.BackgroundTransparency = 0.05 + math.abs(math.sin(phase)) * 0.75
 		end))
 	end
 
 	-- Slow drifting clouds
-	for i = 1, 3 do
-		local cy = rnd(0.20, 0.42)
-		local cl = self:_add(pill(p, rnd(-0.2, 0.8), cy, 0, 0, Color3.fromRGB(80, 110, 180), 0.55, 2))
-		cl.Size = UDim2.fromOffset(rndI(100, 180), rndI(35, 60))
-		local spd = rnd(0.003, 0.007)
+	for _ = 1, 4 do
+		local cy = rnd(0.18, 0.44)
+		local cl = self:_add(pill(p, rnd(-0.3, 0.85), cy, 0, 0, Color3.fromRGB(90, 115, 195), 0.3, 5))
+		cl.Size = UDim2.fromOffset(rndI(110, 200), rndI(36, 62))
+		local spd = rnd(0.002, 0.006)
 		self:_conn(RunService.Heartbeat:Connect(function(dt)
 			if not cl.Parent then return end
 			local nx = cl.Position.X.Scale + spd * dt
-			if nx > 1.15 then nx = -0.3 end
+			if nx > 1.12 then nx = -0.30 end
 			cl.Position = UDim2.new(nx, 0, cy, 0)
 		end))
 	end
 end
-
--- ═══════════════════════════════════════════════════════════════════════════════
--- excited uses neutral scene (stars/neon) – already defined above
--- ═══════════════════════════════════════════════════════════════════════════════
 
 return SceneLayer
