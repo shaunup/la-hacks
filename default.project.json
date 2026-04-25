@@ -36,8 +36,8 @@
       },
       "Games": {
         "$className": "Folder",
-        "ColorBurst": {
-          "$path": "src/ReplicatedStorage/Games/ColorBurst.lua"
+        "MindfulTap": {
+          "$path": "src/ReplicatedStorage/Games/MindfulTap.lua"
         },
         "LanternRelease": {
           "$path": "src/ReplicatedStorage/Games/LanternRelease.lua"

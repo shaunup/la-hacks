@@ -234,11 +234,32 @@ function MemoryGarden:_plantFlower(text)
 	end
 end
 
+function MemoryGarden:OnTimeUp()
+	self._active = false
+	local msgLbl = Instance.new("TextLabel")
+	msgLbl.Size               = UDim2.new(0.7, 0, 0, 80)
+	msgLbl.AnchorPoint        = Vector2.new(0.5, 0.5)
+	msgLbl.Position           = UDim2.new(0.5, 0, 0.5, 0)
+	msgLbl.BackgroundColor3   = self._theme.cardColor
+	msgLbl.BackgroundTransparency = 0.08
+	msgLbl.BorderSizePixel    = 0
+	msgLbl.Text               = "🌸  Time's up!\nYour garden has " .. self._flowerCount .. " flowers 🌷"
+	msgLbl.TextColor3         = self._theme.textColor
+	msgLbl.TextSize           = 19
+	msgLbl.Font               = Enum.Font.GothamBold
+	msgLbl.TextWrapped        = true
+	msgLbl.ZIndex             = 30
+	msgLbl.Parent             = self._container
+	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0,16); c.Parent = msgLbl
+	task.delay(2.5, function()
+		if msgLbl.Parent then msgLbl:Destroy() end
+		if self._onComplete then self._onComplete() end
+	end)
+end
+
 function MemoryGarden:Stop()
 	self._active = false
-	for _, c in ipairs(self._connections) do
-		c:Disconnect()
-	end
+	for _, c in ipairs(self._connections) do c:Disconnect() end
 	self._connections = {}
 end
 

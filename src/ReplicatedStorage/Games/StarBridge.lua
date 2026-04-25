@@ -472,6 +472,34 @@ function StarBridge:_showComplete()
 	end)
 end
 
+function StarBridge:OnTimeUp()
+	-- Show how many stars were placed
+	if self._active then
+		self._active = false
+		if #(self._stars or {}) < TOTAL_STARS then
+			local msgLbl = Instance.new("TextLabel")
+			msgLbl.Size               = UDim2.new(0.7, 0, 0, 80)
+			msgLbl.AnchorPoint        = Vector2.new(0.5, 0.5)
+			msgLbl.Position           = UDim2.new(0.5, 0, 0.5, 0)
+			msgLbl.BackgroundColor3   = self._theme.cardColor
+			msgLbl.BackgroundTransparency = 0.1
+			msgLbl.BorderSizePixel    = 0
+			msgLbl.Text               = "🌌  Time's up!\n" .. #(self._stars or {}) .. " stars in your constellation ✨"
+			msgLbl.TextColor3         = self._theme.textColor
+			msgLbl.TextSize           = 19
+			msgLbl.Font               = Enum.Font.GothamBold
+			msgLbl.TextWrapped        = true
+			msgLbl.ZIndex             = 30
+			msgLbl.Parent             = (self._canvas or self._container)
+			local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0,16); c.Parent = msgLbl
+			task.delay(3, function()
+				if msgLbl.Parent then msgLbl:Destroy() end
+				if self._onComplete then self._onComplete() end
+			end)
+		end
+	end
+end
+
 function StarBridge:Stop()
 	self._active = false
 	if self._sessionId then

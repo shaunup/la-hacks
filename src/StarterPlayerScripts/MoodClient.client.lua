@@ -1,5 +1,5 @@
--- MoodClient: orchestrates all screens, visual transitions, and game flow
--- Flow: StartScreen → LoadingScreen → MoodReveal → GameScreen → PostGame → (loop)
+-- MoodClient v3
+-- Flow: NameEntry → StartScreen → Loading → MoodReveal → GameScreen+Timer → PostGame → loop
 
 local Players           = game:GetService("Players")
 local TweenService      = game:GetService("TweenService")
@@ -11,7 +11,7 @@ local SoundService      = game:GetService("SoundService")
 local player    = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- ─── Remotes (server creates these) ─────────────────────────────────────────
+-- ─── Remotes ─────────────────────────────────────────────────────────────────
 local AnalyzeMood            = ReplicatedStorage:WaitForChild("AnalyzeMood", 30)
 local GetPersonalizedContent = ReplicatedStorage:WaitForChild("GetPersonalizedContent", 30)
 local GetPostGameMessage     = ReplicatedStorage:WaitForChild("GetPostGameMessage", 30)
@@ -23,91 +23,110 @@ local MoodConfig   = require(Modules:WaitForChild("MoodConfig"))
 local AmbientLayer = require(Modules:WaitForChild("AmbientLayer"))
 local Games        = ReplicatedStorage:WaitForChild("Games")
 
--- ─── Global state ────────────────────────────────────────────────────────────
-local currentMood       = nil
-local currentGame       = nil
-local bgMusic           = nil
-local ambientLayer      = nil
-local currentGradTop    = Color3.fromRGB(20, 20, 60)
-local currentGradBottom = Color3.fromRGB(60, 30, 90)
+-- ─── State ───────────────────────────────────────────────────────────────────
+local playerName    = player.Name   -- overwritten by NameEntry
+local currentMood   = nil
+local currentGame   = nil
+local bgMusic       = nil
+local ambient       = nil
+local gradTop       = Color3.fromRGB(16, 16, 48)
+local gradBottom    = Color3.fromRGB(48, 24, 72)
 
--- ─── Shared helpers ──────────────────────────────────────────────────────────
+-- ─── Helpers ─────────────────────────────────────────────────────────────────
 
-local function tweenProps(obj, props, duration, style, dir)
+local function tw(obj, props, dur, sty, dir)
 	if not (obj and obj.Parent) then return end
 	TweenService:Create(obj,
-		TweenInfo.new(duration or 0.4,
-			style or Enum.EasingStyle.Quad,
-			dir   or Enum.EasingDirection.Out),
-		props
-	):Play()
+		TweenInfo.new(dur or 0.4, sty or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out),
+		props):Play()
 end
 
-local function makeRound(parent, radius)
+local function round(p, r)
 	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, radius or 12)
-	c.Parent = parent
+	c.CornerRadius = UDim.new(0, r or 12)
+	c.Parent = p
 	return c
 end
 
-local function makeShadow(parent)
+local function shadow(p)
 	local s = Instance.new("ImageLabel")
-	s.Size               = UDim2.new(1, 24, 1, 24)
-	s.Position           = UDim2.new(0, -10, 0, 8)
+	s.Size               = UDim2.new(1, 26, 1, 26)
+	s.Position           = UDim2.new(0, -11, 0, 9)
 	s.BackgroundTransparency = 1
 	s.Image              = "rbxassetid://5028857084"
-	s.ImageColor3        = Color3.fromRGB(0, 0, 0)
-	s.ImageTransparency  = 0.72
-	s.ZIndex             = (parent.ZIndex or 5) - 1
+	s.ImageColor3        = Color3.new(0, 0, 0)
+	s.ImageTransparency  = 0.73
+	s.ZIndex             = (p.ZIndex or 5) - 1
 	s.ScaleType          = Enum.ScaleType.Slice
 	s.SliceCenter        = Rect.new(24, 24, 276, 276)
-	s.Parent             = parent
+	s.Parent             = p
 	return s
 end
 
-local function makeStroke(parent, color, thickness)
+local function stroke(p, col, th)
 	local s = Instance.new("UIStroke")
-	s.Color     = color or Color3.new(1,1,1)
-	s.Thickness = thickness or 1.5
+	s.Color     = col or Color3.new(1,1,1)
+	s.Thickness = th  or 1.5
 	s.Transparency = 0.6
 	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	s.Parent = parent
+	s.Parent = p
 	return s
 end
 
--- ─── Master ScreenGui ─────────────────────────────────────────────────────────
+local function makeStyledBtn(parent, text, bgCol, fgCol, yPos, w, h)
+	local b = Instance.new("TextButton")
+	b.Size               = UDim2.new(w or 0.72, 0, 0, h or 50)
+	b.AnchorPoint        = Vector2.new(0.5, 0)
+	b.Position           = UDim2.new(0.5, 0, 0, yPos)
+	b.BackgroundColor3   = bgCol
+	b.BorderSizePixel    = 0
+	b.Text               = text
+	b.TextColor3         = fgCol
+	b.TextSize           = 18
+	b.Font               = Enum.Font.GothamBold
+	b.AutoButtonColor    = false
+	b.ZIndex             = parent.ZIndex + 1
+	b.Parent             = parent
+	round(b, 25)
+	b.MouseEnter:Connect(function()
+		tw(b, { BackgroundTransparency = 0.18 }, 0.12)
+	end)
+	b.MouseLeave:Connect(function()
+		tw(b, { BackgroundTransparency = 0 }, 0.12)
+	end)
+	return b
+end
 
-local masterGui = Instance.new("ScreenGui")
-masterGui.Name           = "WellnessGui"
-masterGui.ResetOnSpawn   = false
-masterGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-masterGui.IgnoreGuiInset = true
-masterGui.Parent         = playerGui
+-- ─── Master GUI ───────────────────────────────────────────────────────────────
 
--- Full-screen gradient background
+local gui = Instance.new("ScreenGui")
+gui.Name           = "WellnessGui"
+gui.ResetOnSpawn   = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.IgnoreGuiInset = true
+gui.Parent         = playerGui
+
 local bgFrame = Instance.new("Frame")
-bgFrame.Name             = "Background"
+bgFrame.Name             = "BG"
 bgFrame.Size             = UDim2.new(1, 0, 1, 0)
-bgFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+bgFrame.BackgroundColor3 = gradTop
 bgFrame.BorderSizePixel  = 0
 bgFrame.ZIndex           = 0
-bgFrame.Parent           = masterGui
+bgFrame.Parent           = gui
 
 local bgGrad = Instance.new("UIGradient")
 bgGrad.Color    = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, currentGradTop),
-	ColorSequenceKeypoint.new(1, currentGradBottom),
+	ColorSequenceKeypoint.new(0, gradTop),
+	ColorSequenceKeypoint.new(1, gradBottom),
 })
 bgGrad.Rotation = 135
 bgGrad.Parent   = bgFrame
 
--- ─── Lighting / atmosphere ────────────────────────────────────────────────────
+-- ─── Lighting ─────────────────────────────────────────────────────────────────
 
 local function applyLighting(theme)
-	local lt  = theme.lighting
-	local dur = MoodConfig.TransitionTime
-
-	tweenProps(Lighting, {
+	local lt = theme.lighting
+	tw(Lighting, {
 		Ambient           = lt.Ambient,
 		Brightness        = lt.Brightness,
 		ColorShift_Bottom = lt.ColorShift_Bottom,
@@ -115,49 +134,34 @@ local function applyLighting(theme)
 		OutdoorAmbient    = lt.OutdoorAmbient,
 		FogEnd            = lt.FogEnd,
 		FogColor          = lt.FogColor,
-	}, dur)
+	}, MoodConfig.TransitionTime)
 
 	local atm = Lighting:FindFirstChildOfClass("Atmosphere")
-	if not atm then
-		atm = Instance.new("Atmosphere")
-		atm.Parent = Lighting
-	end
+	if not atm then atm = Instance.new("Atmosphere"); atm.Parent = Lighting end
 	local at = theme.atmosphere
-	tweenProps(atm, { Density = at.Density, Offset = at.Offset, Glare = at.Glare, Haze = at.Haze }, dur)
-	task.delay(dur * 0.5, function()
-		if atm.Parent then
-			atm.Color = at.Color
-			atm.Decay = at.Decay
-		end
+	tw(atm, { Density = at.Density, Offset = at.Offset, Glare = at.Glare, Haze = at.Haze },
+		MoodConfig.TransitionTime)
+	task.delay(MoodConfig.TransitionTime * 0.45, function()
+		if atm.Parent then atm.Color = at.Color; atm.Decay = at.Decay end
 	end)
 end
 
 -- ─── Background gradient transition ──────────────────────────────────────────
 
-local function transitionBackground(theme)
-	local startTop    = currentGradTop
-	local startBottom = currentGradBottom
-	local duration    = MoodConfig.TransitionTime
-	local elapsed     = 0
-	local conn
-	conn = RunService.Heartbeat:Connect(function(dt)
-		elapsed += dt
-		local a = math.clamp(elapsed / duration, 0, 1)
-		local function lerp(c1, c2, t)
-			return Color3.new(
-				c1.R + (c2.R - c1.R) * t,
-				c1.G + (c2.G - c1.G) * t,
-				c1.B + (c2.B - c1.B) * t
-			)
-		end
+local function transitionBG(theme)
+	local s1, s2 = gradTop, gradBottom
+	local dur, elapsed = MoodConfig.TransitionTime, 0
+	local c; c = RunService.Heartbeat:Connect(function(dt)
+		elapsed = math.min(elapsed + dt, dur)
+		local a = elapsed / dur
+		local function lerp(a_, b_, t) return Color3.new(a_.R+(b_.R-a_.R)*t, a_.G+(b_.G-a_.G)*t, a_.B+(b_.B-a_.B)*t) end
 		bgGrad.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, lerp(startTop,    theme.topColor,    a)),
-			ColorSequenceKeypoint.new(1, lerp(startBottom, theme.bottomColor, a)),
+			ColorSequenceKeypoint.new(0, lerp(s1, theme.topColor,    a)),
+			ColorSequenceKeypoint.new(1, lerp(s2, theme.bottomColor, a)),
 		})
-		if a >= 1 then
-			currentGradTop    = theme.topColor
-			currentGradBottom = theme.bottomColor
-			conn:Disconnect()
+		if elapsed >= dur then
+			gradTop = theme.topColor; gradBottom = theme.bottomColor
+			c:Disconnect()
 		end
 	end)
 end
@@ -165,10 +169,10 @@ end
 -- ─── Music ───────────────────────────────────────────────────────────────────
 
 local function playMusic(theme)
-	if bgMusic then
-		local old = bgMusic
-		TweenService:Create(old, TweenInfo.new(1.2), { Volume = 0 }):Play()
-		task.delay(1.3, function() if old.Parent then old:Destroy() end end)
+	local old = bgMusic
+	if old then
+		tw(old, { Volume = 0 }, 1.4)
+		task.delay(1.5, function() if old and old.Parent then old:Destroy() end end)
 	end
 	local snd = Instance.new("Sound")
 	snd.SoundId  = theme.music
@@ -177,55 +181,188 @@ local function playMusic(theme)
 	snd.RollOffMaxDistance = 1e9
 	snd.Parent   = SoundService
 	snd:Play()
-	TweenService:Create(snd, TweenInfo.new(2.5), { Volume = 0.55 }):Play()
+	tw(snd, { Volume = 0.55 }, 2.5)
 	bgMusic = snd
 end
 
 -- ─── Ambient particles ────────────────────────────────────────────────────────
 
 local function startAmbient(theme)
-	if ambientLayer then ambientLayer:Stop() end
-	ambientLayer = AmbientLayer.new(bgFrame, theme)
+	if ambient then ambient:Stop() end
+	ambient = AmbientLayer.new(bgFrame, theme)
 end
 
--- ─── Apply full theme ──────────────────────────────────────────────────────────
+-- ─── Full theme apply ─────────────────────────────────────────────────────────
 
 local function applyTheme(theme)
-	transitionBackground(theme)
+	transitionBG(theme)
 	applyLighting(theme)
 	playMusic(theme)
 	startAmbient(theme)
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- SCREEN 1: Start / Mood Input
+-- SCREEN 0: Name Entry  (first-time personalisation)
 -- ═══════════════════════════════════════════════════════════════════════════════
 
--- Forward declaration
-local buildStartScreen_entry
+local buildStartScreen_entry  -- forward
 
-local function buildStartScreen()
-	-- Neutral ambient for start screen
+local function buildNameEntry()
 	startAmbient({
 		ambient = {
-			style  = "snowflake",
-			count  = 16,
-			shapes = {"✦","·","⋆","○","✧"},
-			color  = Color3.fromRGB(180, 190, 255),
+			style  = "snowflake", count  = 18,
+			shapes = {"✦","·","⋆","○","✧","⊹"},
+			color  = Color3.fromRGB(180, 195, 255),
 		}
 	})
 
+	local screen = Instance.new("Frame")
+	screen.Name              = "NameEntry"
+	screen.Size              = UDim2.new(1, 0, 1, 0)
+	screen.BackgroundTransparency = 1
+	screen.ZIndex            = 5
+	screen.Parent            = gui
+
+	local card = Instance.new("Frame")
+	card.Size               = UDim2.new(0, 440, 0, 300)
+	card.AnchorPoint        = Vector2.new(0.5, 0.5)
+	card.Position           = UDim2.new(0.5, 0, 0.65, 0)
+	card.BackgroundColor3   = Color3.fromRGB(255, 255, 255)
+	card.BackgroundTransparency = 0.1
+	card.BorderSizePixel    = 0
+	card.ZIndex             = 8
+	card.Parent             = screen
+	round(card, 28)
+	shadow(card)
+
+	-- Gradient overlay
+	local g = Instance.new("UIGradient")
+	g.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(240, 240, 255)),
+		ColorSequenceKeypoint.new(1, Color3.new(1,1,1)),
+	})
+	g.Rotation = 130; g.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.06),
+		NumberSequenceKeypoint.new(1, 0.0),
+	}); g.Parent = card
+
+	-- Sparkle logo
+	local logo = Instance.new("TextLabel")
+	logo.Size               = UDim2.fromOffset(60, 60)
+	logo.AnchorPoint        = Vector2.new(0.5, 0)
+	logo.Position           = UDim2.new(0.5, 0, 0, 16)
+	logo.BackgroundTransparency = 1
+	logo.Text               = "✨"
+	logo.TextSize           = 44
+	logo.Font               = Enum.Font.GothamBold
+	logo.ZIndex             = 9
+	logo.Parent             = card
+
+	local title = Instance.new("TextLabel")
+	title.Size               = UDim2.new(1, -40, 0, 44)
+	title.Position           = UDim2.new(0, 20, 0, 76)
+	title.BackgroundTransparency = 1
+	title.Text               = "Welcome to Wellness World"
+	title.TextColor3         = Color3.fromRGB(38, 28, 78)
+	title.TextSize           = 26
+	title.Font               = Enum.Font.GothamBold
+	title.TextXAlignment     = Enum.TextXAlignment.Center
+	title.ZIndex             = 9
+	title.Parent             = card
+
+	local sub = Instance.new("TextLabel")
+	sub.Size               = UDim2.new(1, -50, 0, 28)
+	sub.Position           = UDim2.new(0, 25, 0, 124)
+	sub.BackgroundTransparency = 1
+	sub.Text               = "What would you like to be called?"
+	sub.TextColor3         = Color3.fromRGB(78, 58, 128)
+	sub.TextSize           = 18
+	sub.Font               = Enum.Font.GothamSemibold
+	sub.TextXAlignment     = Enum.TextXAlignment.Center
+	sub.ZIndex             = 9
+	sub.Parent             = card
+
+	-- Name input
+	local ibg = Instance.new("Frame")
+	ibg.Size               = UDim2.new(1, -60, 0, 50)
+	ibg.Position           = UDim2.new(0, 30, 0, 162)
+	ibg.BackgroundColor3   = Color3.fromRGB(245, 245, 255)
+	ibg.BackgroundTransparency = 0.05
+	ibg.BorderSizePixel    = 0
+	ibg.ZIndex             = 9
+	ibg.Parent             = card
+	round(ibg, 25)
+
+	local ring = Instance.new("UIStroke")
+	ring.Thickness = 0; ring.Color = Color3.fromRGB(120, 100, 255)
+	ring.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; ring.Parent = ibg
+
+	local nameBox = Instance.new("TextBox")
+	nameBox.Size               = UDim2.new(1, -22, 1, 0)
+	nameBox.Position           = UDim2.new(0, 11, 0, 0)
+	nameBox.BackgroundTransparency = 1
+	nameBox.Text               = ""
+	nameBox.PlaceholderText    = "Your name (e.g. Alex)"
+	nameBox.PlaceholderColor3  = Color3.fromRGB(160, 150, 200)
+	nameBox.TextColor3         = Color3.fromRGB(40, 30, 70)
+	nameBox.TextSize           = 18
+	nameBox.Font               = Enum.Font.Gotham
+	nameBox.ClearTextOnFocus   = false
+	nameBox.ZIndex             = 10
+	nameBox.Parent             = ibg
+	nameBox.Focused:Connect(function() tw(ring, { Thickness = 3 }, 0.2) end)
+	nameBox.FocusLost:Connect(function() tw(ring, { Thickness = 0 }, 0.2) end)
+
+	local continueBtn = makeStyledBtn(card, "Let's Begin  →", Color3.fromRGB(100, 80, 220), Color3.new(1,1,1), 226)
+
+	-- Animate in
+	card.BackgroundTransparency = 1
+	tw(card, { Position = UDim2.new(0.5, 0, 0.5, 0), BackgroundTransparency = 0.1 }, 0.75,
+		Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+	-- Logo pulse
+	task.spawn(function()
+		while logo.Parent do
+			tw(logo, { Rotation = 8 }, 0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+			task.wait(0.65)
+			if logo.Parent then
+				tw(logo, { Rotation = -8 }, 0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+				task.wait(0.65)
+			end
+		end
+	end)
+
+	local function proceed()
+		local name = nameBox.Text:match("^%s*(.-)%s*$")
+		if name == "" then name = player.Name end
+		playerName = name:sub(1, 30)
+
+		tw(card, { Position = UDim2.new(0.5, 0, 0.35, 0), BackgroundTransparency = 1 }, 0.4,
+			Enum.EasingStyle.Back, Enum.EasingDirection.In)
+		task.delay(0.45, function()
+			screen:Destroy()
+			buildStartScreen_entry()
+		end)
+	end
+
+	continueBtn.MouseButton1Click:Connect(proceed)
+	nameBox.FocusLost:Connect(function(enter) if enter then proceed() end end)
+end
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- SCREEN 1: Mood Input
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+local function buildStartScreen()
 	local screen = Instance.new("Frame")
 	screen.Name              = "StartScreen"
 	screen.Size              = UDim2.new(1, 0, 1, 0)
 	screen.BackgroundTransparency = 1
 	screen.ZIndex            = 5
-	screen.Parent            = masterGui
+	screen.Parent            = gui
 
-	-- Frosted card
 	local card = Instance.new("Frame")
-	card.Name               = "Card"
-	card.Size               = UDim2.new(0, 500, 0, 350)
+	card.Size               = UDim2.new(0, 500, 0, 340)
 	card.AnchorPoint        = Vector2.new(0.5, 0.5)
 	card.Position           = UDim2.new(0.5, 0, 0.6, 0)
 	card.BackgroundColor3   = Color3.fromRGB(255, 255, 255)
@@ -233,67 +370,55 @@ local function buildStartScreen()
 	card.BorderSizePixel    = 0
 	card.ZIndex             = 8
 	card.Parent             = screen
-	makeRound(card, 30)
-	makeShadow(card)
+	round(card, 30); shadow(card)
 
-	local overlay = Instance.new("UIGradient")
-	overlay.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(230, 240, 255)),
-		ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1)),
-	})
-	overlay.Rotation = 130
-	overlay.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.06),
-		NumberSequenceKeypoint.new(1, 0.0),
-	})
-	overlay.Parent = card
+	local g = Instance.new("UIGradient")
+	g.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(235, 240, 255)),
+		ColorSequenceKeypoint.new(1, Color3.new(1,1,1)),
+	}); g.Rotation = 128; g.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.06), NumberSequenceKeypoint.new(1, 0.0),
+	}); g.Parent = card
 
-	-- Title
 	local title = Instance.new("TextLabel")
-	title.Size               = UDim2.new(1, -40, 0, 52)
-	title.Position           = UDim2.new(0, 20, 0, 20)
+	title.Size               = UDim2.new(1, -40, 0, 48)
+	title.Position           = UDim2.new(0, 20, 0, 18)
 	title.BackgroundTransparency = 1
-	title.Text               = "✨  Wellness World"
-	title.TextColor3         = Color3.fromRGB(40, 30, 80)
-	title.TextSize           = 32
+	title.Text               = "✨  Hey " .. playerName .. "!"
+	title.TextColor3         = Color3.fromRGB(38, 28, 78)
+	title.TextSize           = 30
 	title.Font               = Enum.Font.GothamBold
 	title.TextXAlignment     = Enum.TextXAlignment.Center
-	title.ZIndex             = 9
-	title.Parent             = card
+	title.ZIndex             = 9; title.Parent = card
 
-	-- Subtitle
 	local sub = Instance.new("TextLabel")
-	sub.Size               = UDim2.new(1, -60, 0, 34)
-	sub.Position           = UDim2.new(0, 30, 0, 78)
+	sub.Size               = UDim2.new(1, -60, 0, 32)
+	sub.Position           = UDim2.new(0, 30, 0, 72)
 	sub.BackgroundTransparency = 1
 	sub.Text               = "How are you feeling today?"
-	sub.TextColor3         = Color3.fromRGB(80, 60, 130)
+	sub.TextColor3         = Color3.fromRGB(78, 58, 130)
 	sub.TextSize           = 21
 	sub.Font               = Enum.Font.GothamSemibold
 	sub.TextXAlignment     = Enum.TextXAlignment.Center
-	sub.ZIndex             = 9
-	sub.Parent             = card
+	sub.ZIndex             = 9; sub.Parent = card
 
 	-- Input
-	local inputBG = Instance.new("Frame")
-	inputBG.Size               = UDim2.new(1, -60, 0, 54)
-	inputBG.Position           = UDim2.new(0, 30, 0, 124)
-	inputBG.BackgroundColor3   = Color3.fromRGB(245, 245, 255)
-	inputBG.BackgroundTransparency = 0.05
-	inputBG.BorderSizePixel    = 0
-	inputBG.ZIndex             = 9
-	inputBG.Parent             = card
-	makeRound(inputBG, 27)
+	local ibg = Instance.new("Frame")
+	ibg.Size               = UDim2.new(1, -60, 0, 52)
+	ibg.Position           = UDim2.new(0, 30, 0, 116)
+	ibg.BackgroundColor3   = Color3.fromRGB(245, 245, 255)
+	ibg.BackgroundTransparency = 0.05
+	ibg.BorderSizePixel    = 0
+	ibg.ZIndex             = 9; ibg.Parent = card
+	round(ibg, 26)
 
 	local ring = Instance.new("UIStroke")
-	ring.Thickness = 0
-	ring.Color     = Color3.fromRGB(120, 100, 255)
-	ring.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	ring.Parent    = inputBG
+	ring.Thickness = 0; ring.Color = Color3.fromRGB(120, 100, 255)
+	ring.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; ring.Parent = ibg
 
 	local inputField = Instance.new("TextBox")
-	inputField.Size               = UDim2.new(1, -24, 1, 0)
-	inputField.Position           = UDim2.new(0, 12, 0, 0)
+	inputField.Size               = UDim2.new(1, -22, 1, 0)
+	inputField.Position           = UDim2.new(0, 11, 0, 0)
 	inputField.BackgroundTransparency = 1
 	inputField.Text               = ""
 	inputField.PlaceholderText    = "e.g.  I'm feeling a bit anxious today…"
@@ -301,59 +426,48 @@ local function buildStartScreen()
 	inputField.TextColor3         = Color3.fromRGB(40, 30, 70)
 	inputField.TextSize           = 17
 	inputField.Font               = Enum.Font.Gotham
-	inputField.ZIndex             = 10
 	inputField.ClearTextOnFocus   = false
 	inputField.MultiLine          = false
-	inputField.Parent             = inputBG
+	inputField.ZIndex             = 10; inputField.Parent = ibg
 
-	inputField.Focused:Connect(function()
-		tweenProps(ring, { Thickness = 3 }, 0.2)
-	end)
-	inputField.FocusLost:Connect(function()
-		tweenProps(ring, { Thickness = 0 }, 0.2)
-	end)
+	inputField.Focused:Connect(function() tw(ring, { Thickness = 3 }, 0.2) end)
+	inputField.FocusLost:Connect(function() tw(ring, { Thickness = 0 }, 0.2) end)
 
-	-- Submit button
-	local btn = Instance.new("TextButton")
-	btn.Size               = UDim2.new(1, -60, 0, 54)
-	btn.Position           = UDim2.new(0, 30, 0, 196)
-	btn.BackgroundColor3   = Color3.fromRGB(100, 80, 220)
-	btn.BorderSizePixel    = 0
-	btn.Text               = "✦  Explore My World"
-	btn.TextColor3         = Color3.fromRGB(255, 255, 255)
-	btn.TextSize           = 20
-	btn.Font               = Enum.Font.GothamBold
-	btn.AutoButtonColor    = false
-	btn.ZIndex             = 9
-	btn.Parent             = card
-	makeRound(btn, 27)
+	local btn = makeStyledBtn(card, "✦  Explore My World", Color3.fromRGB(100, 80, 220), Color3.new(1,1,1), 186)
 
-	btn.MouseEnter:Connect(function()
-		tweenProps(btn, { BackgroundColor3 = Color3.fromRGB(130, 110, 255), Size = UDim2.new(1,-54,0,56), Position = UDim2.new(0,27,0,195) }, 0.14)
-	end)
-	btn.MouseLeave:Connect(function()
-		tweenProps(btn, { BackgroundColor3 = Color3.fromRGB(100, 80, 220), Size = UDim2.new(1,-60,0,54), Position = UDim2.new(0,30,0,196) }, 0.14)
-	end)
-	btn.MouseButton1Down:Connect(function()
-		tweenProps(btn, { BackgroundColor3 = Color3.fromRGB(70, 55, 180) }, 0.08)
-	end)
-
-	-- Hint
 	local hint = Instance.new("TextLabel")
 	hint.Size               = UDim2.new(1, -40, 0, 30)
-	hint.Position           = UDim2.new(0, 20, 0, 264)
+	hint.Position           = UDim2.new(0, 20, 0, 250)
 	hint.BackgroundTransparency = 1
 	hint.Text               = "Powered by Gemini AI  ·  Your feelings are heard 💛"
-	hint.TextColor3         = Color3.fromRGB(140, 130, 180)
+	hint.TextColor3         = Color3.fromRGB(140, 130, 185)
 	hint.TextSize           = 13
 	hint.Font               = Enum.Font.Gotham
 	hint.TextXAlignment     = Enum.TextXAlignment.Center
-	hint.ZIndex             = 9
-	hint.Parent             = card
+	hint.ZIndex             = 9; hint.Parent = card
 
-	-- Animate in
+	-- Change-name link
+	local chgName = Instance.new("TextButton")
+	chgName.Size               = UDim2.fromOffset(130, 26)
+	chgName.AnchorPoint        = Vector2.new(1, 1)
+	chgName.Position           = UDim2.new(1, -12, 1, -8)
+	chgName.BackgroundTransparency = 1
+	chgName.Text               = "✎ Change name"
+	chgName.TextColor3         = Color3.fromRGB(120, 110, 180)
+	chgName.TextSize           = 13
+	chgName.Font               = Enum.Font.Gotham
+	chgName.ZIndex             = 9; chgName.Parent = card
+	chgName.MouseButton1Click:Connect(function()
+		tw(card, { BackgroundTransparency = 1, Position = UDim2.new(0.5,0,0.35,0) }, 0.35)
+		task.delay(0.4, function()
+			screen:Destroy()
+			buildNameEntry()
+		end)
+	end)
+
 	card.BackgroundTransparency = 1
-	tweenProps(card, { Position = UDim2.new(0.5, 0, 0.5, 0), BackgroundTransparency = 0.1 }, 0.75, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	tw(card, { Position = UDim2.new(0.5, 0, 0.5, 0), BackgroundTransparency = 0.1 }, 0.75,
+		Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
 	return screen, inputField, btn
 end
@@ -368,56 +482,52 @@ local function buildLoadingScreen(labelText)
 	screen.Size              = UDim2.new(1, 0, 1, 0)
 	screen.BackgroundTransparency = 1
 	screen.ZIndex            = 25
-	screen.Parent            = masterGui
+	screen.Parent            = gui
 
 	local lbl = Instance.new("TextLabel")
-	lbl.Size               = UDim2.new(0, 360, 0, 60)
+	lbl.Size               = UDim2.new(0, 360, 0, 56)
 	lbl.AnchorPoint        = Vector2.new(0.5, 0.5)
-	lbl.Position           = UDim2.new(0.5, 0, 0.5, -20)
+	lbl.Position           = UDim2.new(0.5, 0, 0.5, -22)
 	lbl.BackgroundTransparency = 1
 	lbl.Text               = labelText or "Reading your mood…"
 	lbl.TextColor3         = Color3.fromRGB(220, 220, 255)
-	lbl.TextSize           = 26
+	lbl.TextSize           = 25
 	lbl.Font               = Enum.Font.GothamBold
-	lbl.ZIndex             = 26
-	lbl.Parent             = screen
+	lbl.ZIndex             = 26; lbl.Parent = screen
 
-	local dotsFrame = Instance.new("Frame")
-	dotsFrame.Size               = UDim2.fromOffset(88, 24)
-	dotsFrame.AnchorPoint        = Vector2.new(0.5, 0)
-	dotsFrame.Position           = UDim2.new(0.5, 0, 0.5, 28)
-	dotsFrame.BackgroundTransparency = 1
-	dotsFrame.ZIndex             = 26
-	dotsFrame.Parent             = screen
+	local dotsF = Instance.new("Frame")
+	dotsF.Size               = UDim2.fromOffset(88, 24)
+	dotsF.AnchorPoint        = Vector2.new(0.5, 0)
+	dotsF.Position           = UDim2.new(0.5, 0, 0.5, 28)
+	dotsF.BackgroundTransparency = 1
+	dotsF.ZIndex             = 26; dotsF.Parent = screen
 
 	local dots = {}
 	for i = 1, 3 do
 		local d = Instance.new("Frame")
-		d.Size               = UDim2.fromOffset(15, 15)
-		d.Position           = UDim2.new(0, (i-1)*36, 0.5, -7)
+		d.Size               = UDim2.fromOffset(14, 14)
+		d.Position           = UDim2.new(0, (i-1)*37, 0.5, -7)
 		d.BackgroundColor3   = Color3.fromRGB(180, 160, 255)
 		d.BorderSizePixel    = 0
-		d.ZIndex             = 27
-		d.Parent             = dotsFrame
-		makeRound(d, 50)
-		dots[i] = d
+		d.ZIndex             = 27; d.Parent = dotsF
+		round(d, 50); dots[i] = d
 	end
 
-	local dotTime = 0
-	local dotConn = RunService.Heartbeat:Connect(function(dt)
-		dotTime += dt
+	local t = 0
+	local c = RunService.Heartbeat:Connect(function(dt)
+		t += dt
 		for i, d in ipairs(dots) do
 			if d.Parent then
-				d.Position = UDim2.new(0, (i-1)*36, 0.5, -7 + math.sin(dotTime * 4 + (i-1)*1.2) * 7)
+				d.Position = UDim2.new(0, (i-1)*37, 0.5, -7 + math.sin(t*4+(i-1)*1.2)*7)
 			end
 		end
 	end)
 
-	return screen, dotConn, lbl
+	return screen, c, lbl
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- SCREEN 3: Mood Reveal  (now uses Gemini personalised content)
+-- SCREEN 3: Mood Reveal  (dramatic animated reveal with name)
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 local function buildMoodReveal(mood, personalised, onPlay)
@@ -428,76 +538,74 @@ local function buildMoodReveal(mood, personalised, onPlay)
 	screen.Size              = UDim2.new(1, 0, 1, 0)
 	screen.BackgroundTransparency = 1
 	screen.ZIndex            = 20
-	screen.Parent            = masterGui
+	screen.Parent            = gui
 
 	local card = Instance.new("Frame")
-	card.Size               = UDim2.new(0, 500, 0, 440)
+	card.Size               = UDim2.new(0, 500, 0, 0)
 	card.AnchorPoint        = Vector2.new(0.5, 0.5)
 	card.Position           = UDim2.new(0.5, 0, 0.5, 0)
 	card.BackgroundColor3   = theme.cardColor
 	card.BackgroundTransparency = 0.12
 	card.BorderSizePixel    = 0
-	card.ZIndex             = 21
-	card.Parent             = screen
-	makeRound(card, 30)
-	makeShadow(card)
-	makeStroke(card, theme.accentColor, 1.5)
+	card.ZIndex             = 21; card.Parent = screen
+	round(card, 30); shadow(card); stroke(card, theme.accentColor, 1.5)
 
-	-- Emoji
-	local emoji = Instance.new("TextLabel")
-	emoji.Size               = UDim2.fromOffset(80, 80)
-	emoji.AnchorPoint        = Vector2.new(0.5, 0)
-	emoji.Position           = UDim2.new(0.5, 0, 0, 22)
-	emoji.BackgroundTransparency = 1
-	emoji.Text               = theme.emoji
-	emoji.TextSize           = 58
-	emoji.Font               = Enum.Font.GothamBold
-	emoji.ZIndex             = 22
-	emoji.Parent             = card
+	local y = 20
 
-	-- "You seem…" label
-	local moodLbl = Instance.new("TextLabel")
-	moodLbl.Size               = UDim2.new(1, -40, 0, 44)
-	moodLbl.AnchorPoint        = Vector2.new(0.5, 0)
-	moodLbl.Position           = UDim2.new(0.5, 0, 0, 108)
-	moodLbl.BackgroundTransparency = 1
-	moodLbl.Text               = "You seem " .. theme.label .. "  " .. theme.emoji
-	moodLbl.TextColor3         = theme.textColor
-	moodLbl.TextSize           = 28
-	moodLbl.Font               = Enum.Font.GothamBold
-	moodLbl.TextXAlignment     = Enum.TextXAlignment.Center
-	moodLbl.ZIndex             = 22
-	moodLbl.Parent             = card
+	-- Big mood emoji
+	local emojiLbl = Instance.new("TextLabel")
+	emojiLbl.Size               = UDim2.fromOffset(80, 80)
+	emojiLbl.AnchorPoint        = Vector2.new(0.5, 0)
+	emojiLbl.Position           = UDim2.new(0.5, 0, 0, y)
+	emojiLbl.BackgroundTransparency = 1
+	emojiLbl.Text               = theme.emoji
+	emojiLbl.TextSize           = 58
+	emojiLbl.Font               = Enum.Font.GothamBold
+	emojiLbl.ZIndex             = 22; emojiLbl.Parent = card
+	y = y + 88
 
-	-- Gemini tagline (personalised)
-	local tagline = personalised and personalised.tagline or theme.tagline
-	local tag = Instance.new("TextLabel")
-	tag.Size               = UDim2.new(1, -60, 0, 56)
-	tag.AnchorPoint        = Vector2.new(0.5, 0)
-	tag.Position           = UDim2.new(0.5, 0, 0, 158)
-	tag.BackgroundTransparency = 1
-	tag.Text               = tagline
-	tag.TextColor3         = theme.textColor
-	tag.TextSize           = 18
-	tag.Font               = Enum.Font.GothamSemibold
-	tag.TextWrapped        = true
-	tag.TextXAlignment     = Enum.TextXAlignment.Center
-	tag.ZIndex             = 22
-	tag.Parent             = card
+	-- "Hey [Name], you seem..."
+	local greeting = Instance.new("TextLabel")
+	greeting.Size               = UDim2.new(1, -40, 0, 42)
+	greeting.AnchorPoint        = Vector2.new(0.5, 0)
+	greeting.Position           = UDim2.new(0.5, 0, 0, y)
+	greeting.BackgroundTransparency = 1
+	greeting.Text               = "Hey " .. playerName .. ", you seem  " .. theme.label .. "  " .. theme.emoji
+	greeting.TextColor3         = theme.textColor
+	greeting.TextSize           = 26
+	greeting.Font               = Enum.Font.GothamBold
+	greeting.TextXAlignment     = Enum.TextXAlignment.Center
+	greeting.ZIndex             = 22; greeting.Parent = card
+	y = y + 50
 
-	-- Gemini tip chip
+	-- Gemini tagline
+	local tagText = (personalised and personalised.tagline ~= "") and personalised.tagline or theme.tagline
+	local tagLbl = Instance.new("TextLabel")
+	tagLbl.Size               = UDim2.new(1, -60, 0, 52)
+	tagLbl.AnchorPoint        = Vector2.new(0.5, 0)
+	tagLbl.Position           = UDim2.new(0.5, 0, 0, y)
+	tagLbl.BackgroundTransparency = 1
+	tagLbl.Text               = tagText
+	tagLbl.TextColor3         = theme.textColor
+	tagLbl.TextSize           = 17
+	tagLbl.Font               = Enum.Font.GothamSemibold
+	tagLbl.TextWrapped        = true
+	tagLbl.TextXAlignment     = Enum.TextXAlignment.Center
+	tagLbl.ZIndex             = 22; tagLbl.Parent = card
+	y = y + 58
+
+	-- Gemini tip
 	local tipText = personalised and personalised.tip or ""
 	if tipText ~= "" then
 		local tipBG = Instance.new("Frame")
 		tipBG.Size               = UDim2.new(0.88, 0, 0, 44)
 		tipBG.AnchorPoint        = Vector2.new(0.5, 0)
-		tipBG.Position           = UDim2.new(0.5, 0, 0, 222)
+		tipBG.Position           = UDim2.new(0.5, 0, 0, y)
 		tipBG.BackgroundColor3   = theme.accentColor
 		tipBG.BackgroundTransparency = 0.35
 		tipBG.BorderSizePixel    = 0
-		tipBG.ZIndex             = 22
-		tipBG.Parent             = card
-		makeRound(tipBG, 22)
+		tipBG.ZIndex             = 22; tipBG.Parent = card
+		round(tipBG, 22)
 
 		local tipLbl = Instance.new("TextLabel")
 		tipLbl.Size               = UDim2.new(1, -16, 1, 0)
@@ -505,96 +613,182 @@ local function buildMoodReveal(mood, personalised, onPlay)
 		tipLbl.BackgroundTransparency = 1
 		tipLbl.Text               = "💡  " .. tipText
 		tipLbl.TextColor3         = theme.textColor
-		tipLbl.TextSize           = 15
+		tipLbl.TextSize           = 14
 		tipLbl.Font               = Enum.Font.Gotham
 		tipLbl.TextWrapped        = true
-		tipLbl.ZIndex             = 23
-		tipLbl.Parent             = tipBG
+		tipLbl.ZIndex             = 23; tipLbl.Parent = tipBG
+		y = y + 52
 	end
 
 	-- Game chip
 	local gameInfo = MoodConfig.GameInfo[theme.game]
 	local chip = Instance.new("Frame")
-	chip.Size               = UDim2.new(0.8, 0, 0, 44)
+	chip.Size               = UDim2.new(0.82, 0, 0, 42)
 	chip.AnchorPoint        = Vector2.new(0.5, 0)
-	chip.Position           = UDim2.new(0.5, 0, 0, 278)
+	chip.Position           = UDim2.new(0.5, 0, 0, y)
 	chip.BackgroundColor3   = theme.accentColor
-	chip.BackgroundTransparency = 0.2
+	chip.BackgroundTransparency = 0.22
 	chip.BorderSizePixel    = 0
-	chip.ZIndex             = 22
-	chip.Parent             = card
-	makeRound(chip, 22)
+	chip.ZIndex             = 22; chip.Parent = card
+	round(chip, 21)
 
 	local chipLbl = Instance.new("TextLabel")
-	chipLbl.Size               = UDim2.new(1, -16, 1, 0)
-	chipLbl.Position           = UDim2.new(0, 8, 0, 0)
+	chipLbl.Size               = UDim2.new(1, -14, 1, 0)
+	chipLbl.Position           = UDim2.new(0, 7, 0, 0)
 	chipLbl.BackgroundTransparency = 1
 	chipLbl.Text               = gameInfo.icon .. "  Today's activity: " .. gameInfo.name
 	chipLbl.TextColor3         = theme.textColor
-	chipLbl.TextSize           = 17
+	chipLbl.TextSize           = 16
 	chipLbl.Font               = Enum.Font.GothamSemibold
-	chipLbl.ZIndex             = 23
-	chipLbl.Parent             = chip
+	chipLbl.ZIndex             = 23; chipLbl.Parent = chip
+	y = y + 52
+
+	-- Timer preview badge
+	local dur = theme.sessionDuration
+	local timerBadge = Instance.new("TextLabel")
+	timerBadge.Size               = UDim2.new(0, 120, 0, 26)
+	timerBadge.AnchorPoint        = Vector2.new(0.5, 0)
+	timerBadge.Position           = UDim2.new(0.5, 0, 0, y)
+	timerBadge.BackgroundTransparency = 1
+	timerBadge.Text               = "⏱  " .. dur .. "s session"
+	timerBadge.TextColor3         = theme.textColor
+	timerBadge.TextTransparency   = 0.3
+	timerBadge.TextSize           = 14
+	timerBadge.Font               = Enum.Font.Gotham
+	timerBadge.ZIndex             = 22; timerBadge.Parent = card
+	y = y + 34
 
 	-- Play button
-	local playBtn = Instance.new("TextButton")
-	playBtn.Size               = UDim2.new(0.65, 0, 0, 52)
-	playBtn.AnchorPoint        = Vector2.new(0.5, 0)
-	playBtn.Position           = UDim2.new(0.5, 0, 0, 338)
-	playBtn.BackgroundColor3   = theme.accentColor
-	playBtn.BorderSizePixel    = 0
-	playBtn.Text               = "Let's Go! →"
-	playBtn.TextColor3         = theme.textColor
-	playBtn.TextSize           = 20
-	playBtn.Font               = Enum.Font.GothamBold
-	playBtn.AutoButtonColor    = false
-	playBtn.ZIndex             = 22
-	playBtn.Parent             = card
-	makeRound(playBtn, 26)
+	local playBtn = makeStyledBtn(card, "Let's Go! →", theme.accentColor, theme.textColor, y, 0.65, 50)
+	y = y + 62
 
-	playBtn.MouseEnter:Connect(function()
-		tweenProps(playBtn, { BackgroundTransparency = 0.2, Size = UDim2.new(0.67, 0, 0, 54) }, 0.12)
-	end)
-	playBtn.MouseLeave:Connect(function()
-		tweenProps(playBtn, { BackgroundTransparency = 0, Size = UDim2.new(0.65, 0, 0, 52) }, 0.12)
-	end)
+	-- Expand card
+	tw(card, { Size = UDim2.new(0, 500, 0, y) }, 0.65, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
 	playBtn.MouseButton1Click:Connect(function()
-		tweenProps(card, { BackgroundTransparency = 1, Position = UDim2.new(0.5, 0, 0.34, 0) }, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+		tw(card, { BackgroundTransparency = 1, Position = UDim2.new(0.5, 0, 0.34, 0) }, 0.4,
+			Enum.EasingStyle.Back, Enum.EasingDirection.In)
 		task.delay(0.45, function()
 			screen:Destroy()
 			onPlay()
 		end)
 	end)
 
-	-- Animate in
-	card.Size               = UDim2.new(0, 200, 0, 200)
-	card.BackgroundTransparency = 1
-	tweenProps(card, { Size = UDim2.new(0, 500, 0, 440), BackgroundTransparency = 0.12 }, 0.65, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-
-	task.delay(0.5, function()
-		if emoji.Parent then
-			tweenProps(emoji, { Position = UDim2.new(0.5, 0, 0, 12) }, 0.3, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
-			task.delay(0.35, function()
-				if emoji.Parent then tweenProps(emoji, { Position = UDim2.new(0.5, 0, 0, 22) }, 0.3) end
+	-- Emoji bounce
+	task.delay(0.55, function()
+		if emojiLbl.Parent then
+			tw(emojiLbl, { Position = UDim2.new(0.5, 0, 0, 10) }, 0.28, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
+			task.delay(0.3, function()
+				if emojiLbl.Parent then tw(emojiLbl, { Position = UDim2.new(0.5, 0, 0, 20) }, 0.28) end
 			end)
 		end
 	end)
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- SCREEN 5: Post-Game  (Continue / Replay / New Game / Home)
+-- TIMER OVERLAY  (dynamic per mood session duration)
+-- Returns a cleanup function.  onTimeUp fires when timer reaches 0.
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-local function buildPostGameScreen(mood, gameName, postMsg, challenge, onReplay, onAlternate, onHome)
+local function buildTimerOverlay(parent, theme, durationSecs, onTimeUp)
+	-- Top-right pill with countdown + thin progress bar underneath top bar
+	local pill = Instance.new("Frame")
+	pill.Name               = "TimerPill"
+	pill.Size               = UDim2.fromOffset(120, 36)
+	pill.AnchorPoint        = Vector2.new(1, 0)
+	pill.Position           = UDim2.new(1, -10, 0, 62)
+	pill.BackgroundColor3   = theme.cardColor
+	pill.BackgroundTransparency = 0.18
+	pill.BorderSizePixel    = 0
+	pill.ZIndex             = 18
+	pill.Parent             = parent
+	round(pill, 18)
+	stroke(pill, theme.accentColor, 1)
+
+	local timeLabel = Instance.new("TextLabel")
+	timeLabel.Size               = UDim2.new(1, -8, 1, 0)
+	timeLabel.Position           = UDim2.new(0, 4, 0, 0)
+	timeLabel.BackgroundTransparency = 1
+	timeLabel.Text               = "⏱  " .. durationSecs .. "s"
+	timeLabel.TextColor3         = theme.textColor
+	timeLabel.TextSize           = 16
+	timeLabel.Font               = Enum.Font.GothamBold
+	timeLabel.ZIndex             = 19
+	timeLabel.Parent             = pill
+
+	-- Progress bar (full width strip at very top of screen)
+	local barBG = Instance.new("Frame")
+	barBG.Size               = UDim2.new(1, 0, 0, 4)
+	barBG.Position           = UDim2.new(0, 0, 0, 56)
+	barBG.BackgroundColor3   = theme.cardColor
+	barBG.BackgroundTransparency = 0.5
+	barBG.BorderSizePixel    = 0
+	barBG.ZIndex             = 18
+	barBG.Parent             = parent
+
+	local barFill = Instance.new("Frame")
+	barFill.Size               = UDim2.new(1, 0, 1, 0)
+	barFill.BackgroundColor3   = theme.accentColor
+	barFill.BorderSizePixel    = 0
+	barFill.ZIndex             = 19
+	barFill.Parent             = barBG
+
+	-- Countdown
+	local elapsed    = 0
+	local fired      = false
+	local conn
+	conn = RunService.Heartbeat:Connect(function(dt)
+		if not pill.Parent then conn:Disconnect() return end
+		elapsed = math.min(elapsed + dt, durationSecs)
+		local remaining = durationSecs - elapsed
+		local frac      = 1 - elapsed / durationSecs
+
+		timeLabel.Text = "⏱  " .. math.ceil(remaining) .. "s"
+		if barFill.Parent then
+			barFill.Size = UDim2.new(frac, 0, 1, 0)
+		end
+
+		-- Warning colour change at 20%
+		if frac < 0.2 then
+			pill.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+			timeLabel.TextColor3  = Color3.new(1, 1, 1)
+		elseif frac < 0.4 then
+			pill.BackgroundColor3 = Color3.fromRGB(220, 140, 40)
+		end
+
+		-- Pulse last 10s
+		if remaining <= 10 then
+			local pulse = math.abs(math.sin(elapsed * math.pi * 2)) * 0.4
+			pill.BackgroundTransparency = pulse
+		end
+
+		if elapsed >= durationSecs and not fired then
+			fired = true
+			conn:Disconnect()
+			onTimeUp()
+		end
+	end)
+
+	return function()
+		conn:Disconnect()
+		if pill.Parent    then pill:Destroy()  end
+		if barBG.Parent   then barBG:Destroy() end
+	end
+end
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- SCREEN 5: Post-Game
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+local function buildPostGameScreen(mood, gameName, postMsg, challenge, onReplay, onAlt, onHome)
 	local theme = MoodConfig.Themes[mood]
 
 	local screen = Instance.new("Frame")
-	screen.Name              = "PostGameScreen"
+	screen.Name              = "PostGame"
 	screen.Size              = UDim2.new(1, 0, 1, 0)
 	screen.BackgroundTransparency = 1
 	screen.ZIndex            = 30
-	screen.Parent            = masterGui
+	screen.Parent            = gui
 
 	local card = Instance.new("Frame")
 	card.Size               = UDim2.new(0, 480, 0, 0)
@@ -603,43 +797,41 @@ local function buildPostGameScreen(mood, gameName, postMsg, challenge, onReplay,
 	card.BackgroundColor3   = theme.cardColor
 	card.BackgroundTransparency = 0.1
 	card.BorderSizePixel    = 0
-	card.ZIndex             = 31
-	card.Parent             = screen
-	makeRound(card, 28)
-	makeShadow(card)
-	makeStroke(card, theme.accentColor, 1.5)
+	card.ZIndex             = 31; card.Parent = screen
+	round(card, 28); shadow(card); stroke(card, theme.accentColor, 1.5)
 
-	local y = 24
+	local y = 22
 
-	-- Big emoji celebration
 	local confetti = Instance.new("TextLabel")
 	confetti.Size               = UDim2.fromOffset(60, 60)
 	confetti.AnchorPoint        = Vector2.new(0.5, 0)
 	confetti.Position           = UDim2.new(0.5, 0, 0, y)
 	confetti.BackgroundTransparency = 1
 	confetti.Text               = "🎉"
-	confetti.TextSize           = 44
+	confetti.TextSize           = 46
 	confetti.Font               = Enum.Font.GothamBold
-	confetti.ZIndex             = 32
-	confetti.Parent             = card
-	y += 68
+	confetti.ZIndex             = 32; confetti.Parent = card
+	y = y + 68
 
-	-- Post-game message (Gemini)
+	-- Post-game message
 	local msgLbl = Instance.new("TextLabel")
 	msgLbl.Size               = UDim2.new(1, -50, 0, 0)
 	msgLbl.AnchorPoint        = Vector2.new(0.5, 0)
 	msgLbl.Position           = UDim2.new(0.5, 0, 0, y)
 	msgLbl.BackgroundTransparency = 1
-	msgLbl.Text               = postMsg or "Great job! You did amazing."
+	msgLbl.Text               = postMsg or "Amazing session, " .. playerName .. "! You did great."
 	msgLbl.TextColor3         = theme.textColor
 	msgLbl.TextSize           = 19
 	msgLbl.Font               = Enum.Font.GothamBold
 	msgLbl.TextWrapped        = true
 	msgLbl.TextXAlignment     = Enum.TextXAlignment.Center
 	msgLbl.AutomaticSize      = Enum.AutomaticSize.Y
-	msgLbl.ZIndex             = 32
-	msgLbl.Parent             = card
-	y += 68
+	msgLbl.ZIndex             = 32; msgLbl.Parent = card
+	y = y + 70
+
+	-- Affirmation strip
+	local aff = (currentGame and currentGame._affirmation) and currentGame._affirmation
+		or (personalised and personalised.affirmation) or nil
 
 	-- Daily challenge chip
 	if challenge then
@@ -648,33 +840,29 @@ local function buildPostGameScreen(mood, gameName, postMsg, challenge, onReplay,
 		chalBG.AnchorPoint        = Vector2.new(0.5, 0)
 		chalBG.Position           = UDim2.new(0.5, 0, 0, y)
 		chalBG.BackgroundColor3   = theme.accentColor
-		chalBG.BackgroundTransparency = 0.3
+		chalBG.BackgroundTransparency = 0.32
 		chalBG.BorderSizePixel    = 0
-		chalBG.ZIndex             = 32
 		chalBG.AutomaticSize      = Enum.AutomaticSize.Y
-		chalBG.Parent             = card
-		makeRound(chalBG, 14)
+		chalBG.ZIndex             = 32; chalBG.Parent = card
+		round(chalBG, 14)
 
-		local chalPad = Instance.new("UIPadding")
-		chalPad.PaddingLeft   = UDim.new(0, 12)
-		chalPad.PaddingRight  = UDim.new(0, 12)
-		chalPad.PaddingTop    = UDim.new(0, 8)
-		chalPad.PaddingBottom = UDim.new(0, 8)
-		chalPad.Parent        = chalBG
+		local pad = Instance.new("UIPadding")
+		pad.PaddingLeft = UDim.new(0,12); pad.PaddingRight = UDim.new(0,12)
+		pad.PaddingTop  = UDim.new(0, 8); pad.PaddingBottom = UDim.new(0, 8)
+		pad.Parent = chalBG
 
 		local chalTitle = Instance.new("TextLabel")
-		chalTitle.Size               = UDim2.new(1, 0, 0, 22)
+		chalTitle.Size               = UDim2.new(1, 0, 0, 20)
 		chalTitle.BackgroundTransparency = 1
-		chalTitle.Text               = "✦  Today's Wellness Challenge"
+		chalTitle.Text               = "✦  " .. playerName .. "'s Wellness Challenge"
 		chalTitle.TextColor3         = theme.textColor
 		chalTitle.TextSize           = 13
 		chalTitle.Font               = Enum.Font.GothamBold
-		chalTitle.ZIndex             = 33
-		chalTitle.Parent             = chalBG
+		chalTitle.ZIndex             = 33; chalTitle.Parent = chalBG
 
 		local chalLbl = Instance.new("TextLabel")
 		chalLbl.Size               = UDim2.new(1, 0, 0, 0)
-		chalLbl.Position           = UDim2.new(0, 0, 0, 24)
+		chalLbl.Position           = UDim2.new(0, 0, 0, 22)
 		chalLbl.BackgroundTransparency = 1
 		chalLbl.Text               = challenge
 		chalLbl.TextColor3         = theme.textColor
@@ -682,84 +870,56 @@ local function buildPostGameScreen(mood, gameName, postMsg, challenge, onReplay,
 		chalLbl.Font               = Enum.Font.Gotham
 		chalLbl.TextWrapped        = true
 		chalLbl.AutomaticSize      = Enum.AutomaticSize.Y
-		chalLbl.ZIndex             = 33
-		chalLbl.Parent             = chalBG
-
-		y += 90
+		chalLbl.ZIndex             = 33; chalLbl.Parent = chalBG
+		y = y + 92
 	end
 
-	y += 12
+	y = y + 10
 
-	-- ─── Buttons ────────────────────────────────────────────────────────────
-
-	local function makeBtn(label, bgCol, fgCol, yPos, action)
-		local b = Instance.new("TextButton")
-		b.Size               = UDim2.new(0.78, 0, 0, 50)
-		b.AnchorPoint        = Vector2.new(0.5, 0)
-		b.Position           = UDim2.new(0.5, 0, 0, yPos)
-		b.BackgroundColor3   = bgCol
-		b.BorderSizePixel    = 0
-		b.Text               = label
-		b.TextColor3         = fgCol
-		b.TextSize           = 17
-		b.Font               = Enum.Font.GothamBold
-		b.AutoButtonColor    = false
-		b.ZIndex             = 32
-		b.Parent             = card
-		makeRound(b, 25)
-
-		b.MouseEnter:Connect(function()
-			tweenProps(b, { BackgroundTransparency = 0.2 }, 0.12)
+	local function dismissAndRun(action)
+		tw(card, { BackgroundTransparency = 1, Position = UDim2.new(0.5,0,0.35,0) }, 0.35)
+		task.delay(0.4, function()
+			screen:Destroy()
+			action()
 		end)
-		b.MouseLeave:Connect(function()
-			tweenProps(b, { BackgroundTransparency = 0 }, 0.12)
-		end)
-		b.MouseButton1Click:Connect(function()
-			tweenProps(card, { BackgroundTransparency = 1, Position = UDim2.new(0.5, 0, 0.35, 0) }, 0.35)
-			task.delay(0.4, function()
-				screen:Destroy()
-				action()
-			end)
-		end)
-		return b
 	end
 
-	makeBtn("↺  Play Again",                    theme.accentColor, theme.textColor, y,      onReplay)
-	y += 60
 	local altInfo = MoodConfig.GameInfo[MoodConfig.Themes[mood].alternateGame]
-	makeBtn(altInfo.icon .. "  Try " .. altInfo.name, theme.cardColor, theme.textColor, y, onAlternate)
-	y += 60
-	makeBtn("🏠  Return Home",                  Color3.fromRGB(80, 80, 120), Color3.fromRGB(220, 220, 255), y, onHome)
-	y += 66
+	makeStyledBtn(card, "↺  Play Again",                  theme.accentColor, theme.textColor, y):MouseButton1Click:Connect(function() dismissAndRun(onReplay) end)
+	y = y + 58
+	makeStyledBtn(card, altInfo.icon.."  Try "..altInfo.name, theme.cardColor, theme.textColor, y):MouseButton1Click:Connect(function() dismissAndRun(onAlt) end)
+	y = y + 58
+	makeStyledBtn(card, "🏠  Return Home", Color3.fromRGB(70,70,110), Color3.fromRGB(210,215,255), y):MouseButton1Click:Connect(function() dismissAndRun(onHome) end)
+	y = y + 62
 
-	-- Expand card to fit
-	tweenProps(card, { Size = UDim2.new(0, 480, 0, y) }, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	tw(card, { Size = UDim2.new(0, 480, 0, y) }, 0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
-	-- Bounce confetti
-	task.delay(0.4, function()
+	-- Confetti bounce
+	task.delay(0.42, function()
 		if confetti.Parent then
-			tweenProps(confetti, { Position = UDim2.new(0.5, 0, 0, 10) }, 0.25, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
-			task.delay(0.3, function()
-				if confetti.Parent then tweenProps(confetti, { Position = UDim2.new(0.5, 0, 0, 24) }, 0.2) end
+			tw(confetti, { Position = UDim2.new(0.5,0,0,10) }, 0.24, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
+			task.delay(0.28, function()
+				if confetti.Parent then tw(confetti, { Position = UDim2.new(0.5,0,0,22) }, 0.2) end
 			end)
 		end
 	end)
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- SCREEN 4: Game Screen
+-- SCREEN 4: Game Screen + timer
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 local function launchGame(mood, gameName)
 	local theme    = MoodConfig.Themes[mood]
 	local gameInfo = MoodConfig.GameInfo[gameName]
+	local duration = theme.sessionDuration or 90
 
 	local screen = Instance.new("Frame")
 	screen.Name              = "GameScreen"
 	screen.Size              = UDim2.new(1, 0, 1, 0)
 	screen.BackgroundTransparency = 1
 	screen.ZIndex            = 10
-	screen.Parent            = masterGui
+	screen.Parent            = gui
 
 	-- Top bar
 	local topBar = Instance.new("Frame")
@@ -767,20 +927,16 @@ local function launchGame(mood, gameName)
 	topBar.BackgroundColor3   = theme.cardColor
 	topBar.BackgroundTransparency = 0.18
 	topBar.BorderSizePixel    = 0
-	topBar.ZIndex             = 12
-	topBar.Parent             = screen
+	topBar.ZIndex             = 12; topBar.Parent = screen
 
-	local topGrad = Instance.new("UIGradient")
-	topGrad.Color = ColorSequence.new({
+	local tg = Instance.new("UIGradient")
+	tg.Color = ColorSequence.new({
 		ColorSequenceKeypoint.new(0, theme.accentColor),
 		ColorSequenceKeypoint.new(1, theme.cardColor),
-	})
-	topGrad.Rotation = 90
-	topGrad.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.0),
-		NumberSequenceKeypoint.new(1, 0.3),
-	})
-	topGrad.Parent = topBar
+	}); tg.Rotation = 90
+	tg.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.0), NumberSequenceKeypoint.new(1, 0.3),
+	}); tg.Parent = topBar
 
 	local titleLbl = Instance.new("TextLabel")
 	titleLbl.Size               = UDim2.new(1, -110, 1, 0)
@@ -788,120 +944,120 @@ local function launchGame(mood, gameName)
 	titleLbl.BackgroundTransparency = 1
 	titleLbl.Text               = gameInfo.icon .. "  " .. gameInfo.name
 	titleLbl.TextColor3         = theme.textColor
-	titleLbl.TextSize           = 21
+	titleLbl.TextSize           = 20
 	titleLbl.Font               = Enum.Font.GothamBold
-	titleLbl.ZIndex             = 13
-	titleLbl.Parent             = topBar
+	titleLbl.ZIndex             = 13; titleLbl.Parent = topBar
 
-	local backBtn = Instance.new("TextButton")
-	backBtn.Size               = UDim2.fromOffset(88, 34)
-	backBtn.AnchorPoint        = Vector2.new(1, 0.5)
-	backBtn.Position           = UDim2.new(1, -10, 0.5, 0)
-	backBtn.BackgroundColor3   = theme.accentColor
-	backBtn.BackgroundTransparency = 0.35
-	backBtn.BorderSizePixel    = 0
-	backBtn.Text               = "↩  Menu"
-	backBtn.TextColor3         = theme.textColor
-	backBtn.TextSize           = 15
-	backBtn.Font               = Enum.Font.GothamSemibold
-	backBtn.AutoButtonColor    = false
-	backBtn.ZIndex             = 13
-	backBtn.Parent             = topBar
-	makeRound(backBtn, 17)
+	local menuBtn = Instance.new("TextButton")
+	menuBtn.Size               = UDim2.fromOffset(82, 32)
+	menuBtn.AnchorPoint        = Vector2.new(1, 0.5)
+	menuBtn.Position           = UDim2.new(1, -10, 0.5, 0)
+	menuBtn.BackgroundColor3   = theme.accentColor
+	menuBtn.BackgroundTransparency = 0.38
+	menuBtn.BorderSizePixel    = 0
+	menuBtn.Text               = "↩  Menu"
+	menuBtn.TextColor3         = theme.textColor
+	menuBtn.TextSize           = 14
+	menuBtn.Font               = Enum.Font.GothamSemibold
+	menuBtn.AutoButtonColor    = false
+	menuBtn.ZIndex             = 13; menuBtn.Parent = topBar
+	round(menuBtn, 16)
 
 	-- Description strip
 	local descLbl = Instance.new("TextLabel")
-	descLbl.Size               = UDim2.new(1, 0, 0, 30)
+	descLbl.Size               = UDim2.new(1, 0, 0, 28)
 	descLbl.Position           = UDim2.new(0, 0, 0, 56)
 	descLbl.BackgroundColor3   = theme.accentColor
-	descLbl.BackgroundTransparency = 0.55
+	descLbl.BackgroundTransparency = 0.58
 	descLbl.BorderSizePixel    = 0
 	descLbl.Text               = gameInfo.description
 	descLbl.TextColor3         = theme.textColor
-	descLbl.TextSize           = 14
+	descLbl.TextSize           = 13
 	descLbl.Font               = Enum.Font.Gotham
 	descLbl.TextXAlignment     = Enum.TextXAlignment.Center
-	descLbl.ZIndex             = 12
-	descLbl.Parent             = screen
+	descLbl.ZIndex             = 12; descLbl.Parent = screen
 
 	-- Game container
-	local gameContainer = Instance.new("Frame")
-	gameContainer.Name              = "GameContainer"
-	gameContainer.Size              = UDim2.new(1, 0, 1, -86)
-	gameContainer.Position          = UDim2.new(0, 0, 0, 86)
-	gameContainer.BackgroundTransparency = 1
-	gameContainer.ZIndex            = 11
-	gameContainer.Parent            = screen
+	local container = Instance.new("Frame")
+	container.Name              = "GameContainer"
+	container.Size              = UDim2.new(1, 0, 1, -84)
+	container.Position          = UDim2.new(0, 0, 0, 84)
+	container.BackgroundTransparency = 1
+	container.ZIndex            = 11; container.Parent = screen
 
 	-- Slide in
 	screen.Position = UDim2.new(0, 0, 1, 0)
-	tweenProps(screen, { Position = UDim2.new(0, 0, 0, 0) }, 0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+	tw(screen, { Position = UDim2.new(0, 0, 0, 0) }, 0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 
-	-- onComplete callback: show post-game screen
-	local function onGameComplete()
-		-- Fetch Gemini post-game message + daily challenge in parallel
-		local postMsg   = nil
-		local challenge = nil
-		local loadScr, lConn, lLbl = buildLoadingScreen("Getting your results…")
+	-- onComplete: called by game callback OR timer
+	local cleanupTimer = nil
+	local timerFired   = false
+	local function onComplete()
+		if timerFired then return end
+		timerFired = true
+		if cleanupTimer then cleanupTimer() end
+		if currentGame then currentGame:Stop() end
 
+		-- Fetch Gemini post-game content
+		local loadScr, lConn = buildLoadingScreen("Getting your results…")
 		task.spawn(function()
+			local postMsg, challenge = nil, nil
 			local ok1, r1 = pcall(function()
-				return GetPostGameMessage:InvokeServer(mood, gameName)
+				return GetPostGameMessage:InvokeServer(mood, gameName, playerName)
 			end)
 			if ok1 then postMsg = r1 end
 
 			local ok2, r2 = pcall(function()
-				return GetDailyChallenge:InvokeServer(mood)
+				return GetDailyChallenge:InvokeServer(mood, playerName)
 			end)
 			if ok2 then challenge = r2 end
 
 			lConn:Disconnect()
-			tweenProps(loadScr, { BackgroundTransparency = 1 }, 0.3)
+			tw(loadScr, { BackgroundTransparency = 1 }, 0.3)
 			task.delay(0.35, function()
 				if loadScr.Parent then loadScr:Destroy() end
-				if currentGame then currentGame:Stop() end
 				screen:Destroy()
-
 				buildPostGameScreen(
-					mood,
-					gameName,
-					postMsg,
-					challenge,
-					function() launchGame(mood, gameName) end,             -- Replay
-					function() launchGame(mood, MoodConfig.Themes[mood].alternateGame) end, -- Alt
-					function() buildStartScreen_entry() end                 -- Home
+					mood, gameName, postMsg, challenge,
+					function() launchGame(mood, gameName) end,
+					function() launchGame(mood, MoodConfig.Themes[mood].alternateGame) end,
+					function() buildStartScreen_entry() end
 				)
 			end)
 		end)
 	end
 
-	-- Back button goes to post-game (same flow)
-	backBtn.MouseButton1Click:Connect(function()
-		if currentGame then currentGame:Stop() end
-		onGameComplete()
-	end)
+	menuBtn.MouseButton1Click:Connect(onComplete)
 
-	-- Load module
+	-- Load game module
 	local modInst = Games:FindFirstChild(gameName)
 	if modInst then
 		local ok, GameModule = pcall(require, modInst)
 		if ok then
 			local g = GameModule.new()
-			g:Start(gameContainer, theme, onGameComplete)
+			g:Start(container, theme, onComplete)
 			currentGame = g
+
+			-- StarSmash / MindfulTap: hook OnTimeUp if they support it
+			cleanupTimer = buildTimerOverlay(screen, theme, duration, function()
+				if g.OnTimeUp then
+					g:OnTimeUp()
+				else
+					onComplete()
+				end
+			end)
 		else
-			warn("[MoodClient] Failed to require", gameName, ":", GameModule)
+			warn("[MoodClient] require failed:", gameName, GameModule)
 		end
 	else
 		local fb = Instance.new("TextLabel")
 		fb.Size               = UDim2.new(1, 0, 1, 0)
 		fb.BackgroundTransparency = 1
-		fb.Text               = "🎮  " .. gameName .. " — coming soon!"
+		fb.Text               = "🎮  " .. gameName .. " – coming soon!"
 		fb.TextColor3         = theme.textColor
-		fb.TextSize           = 26
-		fb.Font               = Enum.Font.GothamBold
-		fb.ZIndex             = 11
-		fb.Parent             = gameContainer
+		fb.TextSize           = 26; fb.Font = Enum.Font.GothamBold
+		fb.ZIndex             = 11; fb.Parent = container
+		cleanupTimer = buildTimerOverlay(screen, theme, duration, onComplete)
 	end
 end
 
@@ -911,6 +1067,15 @@ end
 
 function buildStartScreen_entry()
 	currentGame = nil
+	-- Restore neutral ambient during mood input
+	startAmbient({
+		ambient = {
+			style  = "snowflake", count = 16,
+			shapes = {"✦","·","⋆","○","✧","⊹"},
+			color  = Color3.fromRGB(180, 195, 255),
+		}
+	})
+
 	local screen, inputField, btn = buildStartScreen()
 
 	local submitted = false
@@ -918,56 +1083,56 @@ function buildStartScreen_entry()
 		if submitted then return end
 		local text = inputField.Text:match("^%s*(.-)%s*$")
 		if text == "" then
-			-- Shake
-			local origPos = inputField.Parent.Position
+			-- Shake the input box
+			local orig = inputField.Parent.Position
 			for i = 1, 4 do
 				task.delay(i * 0.06, function()
 					if inputField.Parent and inputField.Parent.Parent then
-						inputField.Parent.Position = origPos + UDim2.fromOffset((i%2==0 and 7 or -7), 0)
+						inputField.Parent.Position = orig + UDim2.fromOffset((i%2==0 and 8 or -8), 0)
 					end
 				end)
 			end
 			task.delay(0.3, function()
 				if inputField.Parent and inputField.Parent.Parent then
-					inputField.Parent.Position = origPos
+					inputField.Parent.Position = orig
 				end
 			end)
 			return
 		end
 
 		submitted = true
-		tweenProps(screen, { BackgroundTransparency = 0 }, 0.25)
-		screen.BackgroundColor3 = Color3.fromRGB(10, 10, 30)
-		task.delay(0.25, function() tweenProps(screen, { BackgroundTransparency = 1 }, 0.3) end)
+		local userText = text
+
+		tw(screen, { BackgroundTransparency = 0 }, 0.25)
+		screen.BackgroundColor3 = Color3.fromRGB(8, 8, 24)
+		task.delay(0.25, function() tw(screen, { BackgroundTransparency = 1 }, 0.3) end)
 		task.delay(0.5, function()
 			if screen.Parent then screen:Destroy() end
 
-			-- Loading screen
-			local loadScr, dotConn, loadLbl = buildLoadingScreen("Reading your mood…")
+			local loadScr, dotConn, loadLbl = buildLoadingScreen("Reading your mood, " .. playerName .. "…")
 
 			task.spawn(function()
-				-- Step 1: classify mood
+				-- Step 1: Classify mood
 				local mood = "neutral"
 				local ok1, r1 = pcall(function()
-					return AnalyzeMood:InvokeServer(text)
+					return AnalyzeMood:InvokeServer(userText)
 				end)
 				if ok1 and r1 then mood = r1 end
 
-				-- Step 2: personalised content (parallel with theme apply)
+				-- Step 2: Personalised content (uses name)
 				loadLbl.Text = "Crafting your experience…"
 				local personalised = nil
 				local ok2, r2 = pcall(function()
-					return GetPersonalizedContent:InvokeServer(text, mood)
+					return GetPersonalizedContent:InvokeServer(userText, mood, playerName)
 				end)
 				if ok2 then personalised = r2 end
 
-				-- Apply theme
+				-- Apply full theme (background + lighting + music + ambient)
 				applyTheme(MoodConfig.Themes[mood])
 				currentMood = mood
 
-				-- Dismiss loading
 				dotConn:Disconnect()
-				tweenProps(loadScr, { BackgroundTransparency = 1 }, 0.4)
+				tw(loadScr, { BackgroundTransparency = 1 }, 0.4)
 				task.delay(0.45, function()
 					if loadScr.Parent then loadScr:Destroy() end
 					buildMoodReveal(mood, personalised, function()
@@ -982,5 +1147,5 @@ function buildStartScreen_entry()
 	inputField.FocusLost:Connect(function(enter) if enter then submit() end end)
 end
 
--- Boot
-buildStartScreen_entry()
+-- Boot: start with name entry
+buildNameEntry()

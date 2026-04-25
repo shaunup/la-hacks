@@ -197,6 +197,29 @@ function CloudFloat:_showWin()
 	end)
 end
 
+function CloudFloat:OnTimeUp()
+	self._active = false
+	local msgLbl = Instance.new("TextLabel")
+	msgLbl.Size               = UDim2.new(0.65, 0, 0, 70)
+	msgLbl.AnchorPoint        = Vector2.new(0.5, 0.5)
+	msgLbl.Position           = UDim2.new(0.5, 0, 0.5, 0)
+	msgLbl.BackgroundColor3   = self._theme.cardColor
+	msgLbl.BackgroundTransparency = 0.1
+	msgLbl.BorderSizePixel    = 0
+	msgLbl.Text               = "☁️  Time's up!\nPeace collected: " .. self._score
+	msgLbl.TextColor3         = self._theme.textColor
+	msgLbl.TextSize           = 20
+	msgLbl.Font               = Enum.Font.GothamBold
+	msgLbl.TextWrapped        = true
+	msgLbl.ZIndex             = 30
+	msgLbl.Parent             = self._container
+	local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0,16); c.Parent = msgLbl
+	task.delay(2, function()
+		if msgLbl.Parent then msgLbl:Destroy() end
+		if self._onComplete then self._onComplete() end
+	end)
+end
+
 function CloudFloat:Stop()
 	self._active = false
 	for _, c in ipairs(self._connections) do c:Disconnect() end
