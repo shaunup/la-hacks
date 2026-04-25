@@ -1,0 +1,66 @@
+{
+  "name": "WellnessWorld",
+  "tree": {
+    "$className": "DataModel",
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "MoodServer": {
+        "$path": "src/ServerScriptService/MoodServer.server.lua"
+      },
+      "StarBridgeServer": {
+        "$path": "src/ServerScriptService/StarBridgeServer.server.lua"
+      }
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "MoodClient": {
+          "$path": "src/StarterPlayerScripts/MoodClient.client.lua"
+        }
+      }
+    },
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "Modules": {
+        "$className": "Folder",
+        "MoodConfig": {
+          "$path": "src/ReplicatedStorage/Modules/MoodConfig.lua"
+        },
+        "AmbientLayer": {
+          "$path": "src/ReplicatedStorage/Modules/AmbientLayer.lua"
+        },
+        "SceneLayer": {
+          "$path": "src/ReplicatedStorage/Modules/SceneLayer.lua"
+        }
+      },
+      "Games": {
+        "$className": "Folder",
+        "MindfulTap": {
+          "$path": "src/ReplicatedStorage/Games/MindfulTap.lua"
+        },
+        "LanternRelease": {
+          "$path": "src/ReplicatedStorage/Games/LanternRelease.lua"
+        },
+        "MemoryGarden": {
+          "$path": "src/ReplicatedStorage/Games/MemoryGarden.lua"
+        },
+        "StarSmash": {
+          "$path": "src/ReplicatedStorage/Games/StarSmash.lua"
+        },
+        "GratitudeJar": {
+          "$path": "src/ReplicatedStorage/Games/GratitudeJar.lua"
+        },
+        "CloudFloat": {
+          "$path": "src/ReplicatedStorage/Games/CloudFloat.lua"
+        },
+        "StarBridge": {
+          "$path": "src/ReplicatedStorage/Games/StarBridge.lua"
+        }
+      }
+    }
+  }
+}
