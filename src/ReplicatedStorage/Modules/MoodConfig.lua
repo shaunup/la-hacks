@@ -417,4 +417,171 @@ MoodConfig.GameInfo = {
 
 MoodConfig.TransitionTime = 0.7   -- fast enough to feel instant
 
+-- ─── Immersive Intro: shown for ~18s between MoodReveal and the mini-game ────
+--
+-- landscapeDescription : brief text description of the video/image to upload
+-- landscapeImage       : rbxassetid://  ← REPLACE with your Decal/Image asset ID
+--                        Upload a landscape photo in Studio → Toolbox → My Decals
+--                        then paste the asset ID here.
+-- introAudio           : rbxassetid://  ← REPLACE with a SoundAsset ID
+--                        Descriptions below tell you what type of audio to upload.
+-- introDuration        : seconds the intro plays before transitioning (17)
+-- quotes               : 2-3 short quotes shown one at a time, fading in/out
+--
+MoodConfig.Intros = {
+
+	happy = {
+		landscapeDescription = [[
+			A sun-drenched golden meadow in summer. Wildflowers in every direction,
+			rolling hills bathed in warm afternoon light. Butterflies drift past.
+			Upload a photo: bright sunlit field / golden meadow / sunflower landscape.
+		]],
+		landscapeImage  = "rbxassetid://REPLACE_HAPPY_IMAGE",
+		-- Audio: cheerful acoustic guitar or gentle upbeat piano, no lyrics
+		introAudio      = "rbxassetid://REPLACE_HAPPY_AUDIO",
+		introDuration   = 17,
+		quotes = {
+			"Happiness is not something ready-made.\nIt comes from your own actions.",
+			"The present moment is filled with joy and happiness.\nIf you are attentive, you will see it.",
+			"Joy is the simplest form of gratitude.",
+		},
+	},
+
+	calm = {
+		landscapeDescription = [[
+			A still alpine lake at dawn. Mirror-flat water reflecting snow-capped mountains.
+			Mist rising gently from the surface. Absolute silence except for birdsong.
+			Upload: calm mountain lake / misty mountain reflection / serene alpine scenery.
+		]],
+		landscapeImage  = "rbxassetid://REPLACE_CALM_IMAGE",
+		-- Audio: soft ambient nature — gentle stream water sounds or soft piano
+		introAudio      = "rbxassetid://REPLACE_CALM_AUDIO",
+		introDuration   = 17,
+		quotes = {
+			"Calm mind brings inner strength and self-confidence.",
+			"Within you there is a stillness and a sanctuary\nto which you can retreat at any time.",
+			"Peace is not the absence of conflict,\nbut the ability to cope with it.",
+		},
+	},
+
+	excited = {
+		landscapeDescription = [[
+			A dramatic mountain peak at sunrise. Rays of light bursting over the ridge,
+			lighting up clouds in orange and pink. A sense of limitless possibility.
+			Upload: mountain sunrise / epic sunrise peak / golden hour mountain vista.
+		]],
+		landscapeImage  = "rbxassetid://REPLACE_EXCITED_IMAGE",
+		-- Audio: uplifting orchestral swell or energetic electronic ambient
+		introAudio      = "rbxassetid://REPLACE_EXCITED_AUDIO",
+		introDuration   = 15,
+		quotes = {
+			"Energy and persistence conquer all things.",
+			"Life is either a daring adventure or nothing at all.",
+			"Your excitement is your compass — let it lead.",
+		},
+	},
+
+	anxious = {
+		landscapeDescription = [[
+			A quiet forest path in the early morning. Soft green light filtering through
+			tall trees. Dewdrops on leaves. A peaceful trail leading forward.
+			Upload: morning forest path / misty woodland trail / green forest sunlight.
+		]],
+		landscapeImage  = "rbxassetid://REPLACE_ANXIOUS_IMAGE",
+		-- Audio: gentle forest ambience — birds, soft breeze, no music
+		introAudio      = "rbxassetid://REPLACE_ANXIOUS_AUDIO",
+		introDuration   = 18,
+		quotes = {
+			"You don't have to control your thoughts.\nYou just have to stop letting them control you.",
+			"Breathe. You are exactly where you need to be.",
+			"Anxiety is love's greatest killer.\nBut one breath at a time, you return to yourself.",
+		},
+	},
+
+	sad = {
+		landscapeDescription = [[
+			A cherry blossom path in soft spring rain. Pink petals falling slowly
+			onto a quiet stone path. Puddles reflecting the blossoms above.
+			Upload: cherry blossom rain / sakura path / pink blossom falling petals.
+		]],
+		landscapeImage  = "rbxassetid://REPLACE_SAD_IMAGE",
+		-- Audio: soft melancholy piano solo, gentle and soothing
+		introAudio      = "rbxassetid://REPLACE_SAD_AUDIO",
+		introDuration   = 18,
+		quotes = {
+			"It's okay to feel sad. Even the sky cries sometimes\n— and then it clears.",
+			"The wound is the place where the light enters you.",
+			"Grief is just love with nowhere to go.\nGive it somewhere beautiful.",
+		},
+	},
+
+	lonely = {
+		landscapeDescription = [[
+			A vast starfield over a desert mesa at night. The Milky Way stretching
+			across the entire sky. A single lantern glowing in the foreground.
+			Upload: milky way desert / starry night landscape / night sky stars mesa.
+		]],
+		landscapeImage  = "rbxassetid://REPLACE_LONELY_IMAGE",
+		-- Audio: sparse orchestral or ambient with soft pads, starry feeling
+		introAudio      = "rbxassetid://REPLACE_LONELY_AUDIO",
+		introDuration   = 18,
+		quotes = {
+			"Even stars burn alone — yet they light\nthe whole sky for everyone else.",
+			"Loneliness is the poverty of self;\nsolitude is the richness of self.",
+			"You are never truly alone.\nEvery person who ever looked at the same stars felt this too.",
+		},
+	},
+
+	angry = {
+		landscapeDescription = [[
+			A powerful waterfall crashing into a canyon. Raw energy and force.
+			Mist rising. Water thundering, releasing everything into the open air.
+			Upload: powerful waterfall / waterfall canyon / rushing falls nature.
+		]],
+		landscapeImage  = "rbxassetid://REPLACE_ANGRY_IMAGE",
+		-- Audio: powerful flowing water ambience, dramatic but not harsh
+		introAudio      = "rbxassetid://REPLACE_ANGRY_AUDIO",
+		introDuration   = 16,
+		quotes = {
+			"Speak when you are angry and you will make\nthe best speech you will ever regret.",
+			"The greatest remedy for anger is delay.\nLet it move through you like a river.",
+			"Your fire is valid. Now — where will you direct it?",
+		},
+	},
+
+	stressed = {
+		landscapeDescription = [[
+			A gentle coastal cliff at dusk. Waves rolling in slowly below.
+			Warm orange light fading to purple on the horizon. Soft sea breeze.
+			Upload: coastal cliff sunset / cliffside ocean view / calm ocean dusk.
+		]],
+		landscapeImage  = "rbxassetid://REPLACE_STRESSED_IMAGE",
+		-- Audio: slow ocean wave sounds, very calming, no music needed
+		introAudio      = "rbxassetid://REPLACE_STRESSED_AUDIO",
+		introDuration   = 18,
+		quotes = {
+			"You can't stop the waves, but you can learn to surf.",
+			"Almost everything will work again if you unplug it for a few minutes.\nIncluding you.",
+			"Rest is not quitting. Rest is recharging\nso you can go further.",
+		},
+	},
+
+	neutral = {
+		landscapeDescription = [[
+			A lavender field at twilight, stretching to the horizon.
+			Soft purple hues, first stars appearing, a warm breeze.
+			Upload: lavender field twilight / purple flower field evening / lavender landscape.
+		]],
+		landscapeImage  = "rbxassetid://REPLACE_NEUTRAL_IMAGE",
+		-- Audio: soft ambient electronic or gentle acoustic, relaxed
+		introAudio      = "rbxassetid://REPLACE_NEUTRAL_AUDIO",
+		introDuration   = 16,
+		quotes = {
+			"Not every day needs a direction.\nSometimes just being here is enough.",
+			"Let whatever you do today be enough.",
+			"The secret of getting ahead is getting started.",
+		},
+	},
+}
+
 return MoodConfig

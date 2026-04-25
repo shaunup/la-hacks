@@ -950,6 +950,227 @@ local function buildPostGameScreen(mood, gameName, postMsg, challenge, onReplay,
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════════
+-- IMMERSIVE INTRO  (landscape image + fading quotes, ~17s before the game)
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+local function buildImmersiveIntro(mood, onDone)
+	local intro = MoodConfig.Intros and MoodConfig.Intros[mood]
+	if not intro then onDone(); return end   -- safety fallback
+
+	local theme    = MoodConfig.Themes[mood]
+	local duration = intro.introDuration or 17
+	local quotes   = intro.quotes or { "Take a deep breath." }
+
+	-- ── Full-screen frame ────────────────────────────────────────────────────
+	local screen = Instance.new("Frame")
+	screen.Name              = "IntroScreen"
+	screen.Size              = UDim2.new(1, 0, 1, 0)
+	screen.BackgroundColor3  = Color3.fromRGB(0, 0, 0)
+	screen.BackgroundTransparency = 1
+	screen.BorderSizePixel   = 0
+	screen.ZIndex            = 40
+	screen.Parent            = gui
+
+	-- Landscape image fills the entire screen
+	local landscape = Instance.new("ImageLabel")
+	landscape.Name               = "Landscape"
+	landscape.Size               = UDim2.new(1, 0, 1, 0)
+	landscape.BackgroundColor3   = Color3.fromRGB(0, 0, 0)
+	landscape.BackgroundTransparency = 0
+	landscape.Image              = intro.landscapeImage or ""
+	landscape.ScaleType          = Enum.ScaleType.Crop
+	landscape.ImageTransparency  = 1   -- starts invisible, fades in
+	landscape.BorderSizePixel    = 0
+	landscape.ZIndex             = 41
+	landscape.Parent             = screen
+
+	-- Subtle dark vignette at bottom so quotes are readable
+	local vignette = Instance.new("Frame")
+	vignette.Size               = UDim2.new(1, 0, 0.42, 0)
+	vignette.AnchorPoint        = Vector2.new(0, 1)
+	vignette.Position           = UDim2.new(0, 0, 1, 0)
+	vignette.BackgroundColor3   = Color3.fromRGB(0, 0, 0)
+	vignette.BackgroundTransparency = 0.3
+	vignette.BorderSizePixel    = 0
+	vignette.ZIndex             = 42
+	vignette.Parent             = screen
+
+	local vigGrad = Instance.new("UIGradient")
+	vigGrad.Rotation = 90
+	vigGrad.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1.0),
+		NumberSequenceKeypoint.new(1, 0.0),
+	})
+	vigGrad.Parent = vignette
+
+	-- Mood label (top-left pill)
+	local moodPill = Instance.new("Frame")
+	moodPill.Size               = UDim2.fromOffset(160, 36)
+	moodPill.Position           = UDim2.new(0, 20, 0, 20)
+	moodPill.BackgroundColor3   = theme.accentColor
+	moodPill.BackgroundTransparency = 0.15
+	moodPill.BorderSizePixel    = 0
+	moodPill.ZIndex             = 44
+	moodPill.Parent             = screen
+	round(moodPill, 18)
+
+	local moodLbl = Instance.new("TextLabel")
+	moodLbl.Size               = UDim2.new(1, -10, 1, 0)
+	moodLbl.Position           = UDim2.new(0, 5, 0, 0)
+	moodLbl.BackgroundTransparency = 1
+	moodLbl.Text               = theme.emoji .. "  " .. theme.label
+	moodLbl.TextColor3         = theme.textColor
+	moodLbl.TextSize           = 18
+	moodLbl.Font               = Enum.Font.GothamBold
+	moodLbl.ZIndex             = 45
+	moodLbl.Parent             = moodPill
+
+	-- Quote text (centred bottom third)
+	local quoteLbl = Instance.new("TextLabel")
+	quoteLbl.Name               = "QuoteLabel"
+	quoteLbl.Size               = UDim2.new(0.72, 0, 0, 110)
+	quoteLbl.AnchorPoint        = Vector2.new(0.5, 1)
+	quoteLbl.Position           = UDim2.new(0.5, 0, 0.90, 0)
+	quoteLbl.BackgroundTransparency = 1
+	quoteLbl.Text               = ""
+	quoteLbl.TextColor3         = Color3.fromRGB(255, 255, 255)
+	quoteLbl.TextSize            = 22
+	quoteLbl.Font                = Enum.Font.GothamSemibold
+	quoteLbl.TextWrapped         = true
+	quoteLbl.TextXAlignment      = Enum.TextXAlignment.Center
+	quoteLbl.TextTransparency    = 1
+	quoteLbl.ZIndex              = 44
+	quoteLbl.Parent              = screen
+
+	-- Quote attribution line
+	local attrLbl = Instance.new("TextLabel")
+	attrLbl.Size               = UDim2.new(0.5, 0, 0, 28)
+	attrLbl.AnchorPoint        = Vector2.new(0.5, 1)
+	attrLbl.Position           = UDim2.new(0.5, 0, 0.94, 0)
+	attrLbl.BackgroundTransparency = 1
+	attrLbl.Text               = ""
+	attrLbl.TextColor3         = Color3.fromRGB(210, 210, 210)
+	attrLbl.TextSize            = 15
+	attrLbl.Font                = Enum.Font.Gotham
+	attrLbl.TextTransparency    = 1
+	attrLbl.TextXAlignment      = Enum.TextXAlignment.Center
+	attrLbl.ZIndex              = 44
+	attrLbl.Parent              = screen
+
+	-- Skip button
+	local skipBtn = Instance.new("TextButton")
+	skipBtn.Size               = UDim2.fromOffset(110, 32)
+	skipBtn.AnchorPoint        = Vector2.new(1, 0)
+	skipBtn.Position           = UDim2.new(1, -18, 0, 18)
+	skipBtn.BackgroundColor3   = Color3.fromRGB(20, 20, 40)
+	skipBtn.BackgroundTransparency = 0.35
+	skipBtn.BorderSizePixel    = 0
+	skipBtn.Text               = "Skip  →"
+	skipBtn.TextColor3         = Color3.fromRGB(200, 200, 220)
+	skipBtn.TextSize           = 14
+	skipBtn.Font               = Enum.Font.GothamSemibold
+	skipBtn.AutoButtonColor    = false
+	skipBtn.ZIndex             = 44
+	skipBtn.Parent             = screen
+	round(skipBtn, 16)
+
+	-- Progress bar at very bottom
+	local pbarBG = Instance.new("Frame")
+	pbarBG.Size               = UDim2.new(1, 0, 0, 3)
+	pbarBG.AnchorPoint        = Vector2.new(0, 1)
+	pbarBG.Position           = UDim2.new(0, 0, 1, 0)
+	pbarBG.BackgroundColor3   = Color3.fromRGB(60, 60, 80)
+	pbarBG.BackgroundTransparency = 0.2
+	pbarBG.BorderSizePixel    = 0
+	pbarBG.ZIndex             = 43
+	pbarBG.Parent             = screen
+
+	local pbarFill = Instance.new("Frame")
+	pbarFill.Size               = UDim2.new(0, 0, 1, 0)
+	pbarFill.BackgroundColor3   = theme.accentColor
+	pbarFill.BorderSizePixel    = 0
+	pbarFill.ZIndex             = 44
+	pbarFill.Parent             = pbarBG
+
+	-- ── Intro audio ─────────────────────────────────────────────────────────
+	local introSound = nil
+	if intro.introAudio and intro.introAudio ~= "" and
+	   not intro.introAudio:find("REPLACE") then
+		introSound = Instance.new("Sound")
+		introSound.SoundId  = intro.introAudio
+		introSound.Volume   = 0
+		introSound.Looped   = false
+		introSound.Parent   = SoundService
+		introSound:Play()
+		TweenService:Create(introSound, TweenInfo.new(2), { Volume = 0.72 }):Play()
+	end
+
+	-- Duck background music while intro plays
+	if bgMusic and bgMusic.Parent then
+		TweenService:Create(bgMusic, TweenInfo.new(0.8), { Volume = 0.12 }):Play()
+	end
+
+	-- ── Animation sequence ───────────────────────────────────────────────────
+	local skipFired = false
+	local function finishIntro()
+		if skipFired then return end
+		skipFired = true
+
+		-- Fade out intro sound
+		if introSound then
+			TweenService:Create(introSound, TweenInfo.new(1.5), { Volume = 0 }):Play()
+			task.delay(1.6, function() if introSound.Parent then introSound:Destroy() end end)
+		end
+		-- Restore background music
+		if bgMusic and bgMusic.Parent then
+			TweenService:Create(bgMusic, TweenInfo.new(1.5), { Volume = musicVolume }):Play()
+		end
+
+		-- Fade entire screen to black then to game
+		TweenService:Create(screen, TweenInfo.new(0.8), { BackgroundTransparency = 0 }):Play()
+		screen.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+		task.delay(0.85, function()
+			screen:Destroy()
+			onDone()
+		end)
+	end
+
+	skipBtn.MouseButton1Click:Connect(finishIntro)
+
+	-- Phase 1: fade in landscape over 1.8s
+	task.spawn(function()
+		TweenService:Create(landscape, TweenInfo.new(1.8), { ImageTransparency = 0 }):Play()
+		task.wait(1.8)
+
+		-- Show each quote in sequence
+		local timePerQuote = (duration - 3) / #quotes
+		for i, quote in ipairs(quotes) do
+			if skipFired then break end
+			quoteLbl.Text = quote
+			-- Fade in
+			TweenService:Create(quoteLbl, TweenInfo.new(0.9), { TextTransparency = 0 }):Play()
+			TweenService:Create(attrLbl, TweenInfo.new(0.9), { TextTransparency = 0 }):Play()
+			task.wait(timePerQuote - 1.4)
+			if skipFired then break end
+			-- Fade out
+			TweenService:Create(quoteLbl, TweenInfo.new(0.7), { TextTransparency = 1 }):Play()
+			TweenService:Create(attrLbl, TweenInfo.new(0.7), { TextTransparency = 1 }):Play()
+			task.wait(0.8)
+		end
+
+		if not skipFired then finishIntro() end
+	end)
+
+	-- Progress bar fill over duration
+	task.spawn(function()
+		TweenService:Create(pbarFill,
+			TweenInfo.new(duration, Enum.EasingStyle.Linear),
+			{ Size = UDim2.new(1, 0, 1, 0) }
+		):Play()
+	end)
+end
+
+-- ═══════════════════════════════════════════════════════════════════════════════
 -- SCREEN 4: Game Screen + Timer
 -- ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1164,7 +1385,10 @@ function buildStartScreen_entry()
 				task.delay(0.42, function()
 					if loadScr.Parent then loadScr:Destroy() end
 					buildMoodReveal(mood, personalised, function()
-						launchGame(mood, MoodConfig.Themes[mood].game)
+						-- Show immersive landscape intro, THEN launch game
+						buildImmersiveIntro(mood, function()
+							launchGame(mood, MoodConfig.Themes[mood].game)
+						end)
 					end)
 				end)
 			end)
