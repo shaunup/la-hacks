@@ -1,10 +1,7 @@
--- SceneLayer: draws a full-screen illustrated scene behind the gradient,
--- using only Roblox GUI primitives (Frame / TextLabel).
--- Each mood gets a unique scene: sun + clouds, night sky + stars, volcano, etc.
--- Usage:
---   local SceneLayer = require(...)
---   local scene = SceneLayer.new(bgFrame, mood)
---   scene:Stop()   -- removes all objects
+-- SceneLayer: draws an animated illustrated scene inside bgFrame.
+-- All sizes/positions use SCALE values (0-1) so the scene fills any resolution.
+-- Objects are inserted at ZIndex 2-6; gradient is on bgFrame itself (ZIndex 1).
+-- Ambient particles (AmbientLayer) sit at ZIndex 7+, UI cards at ZIndex 10+.
 
 local TweenService = game:GetService("TweenService")
 local RunService   = game:GetService("RunService")
