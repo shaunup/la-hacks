@@ -28,12 +28,13 @@ function StarSmash.new()
 	}, StarSmash)
 end
 
-function StarSmash:Start(container, theme)
-	self._active    = true
-	self._score     = 0
-	self._missed    = 0
-	self._container = container
-	self._theme     = theme
+function StarSmash:Start(container, theme, onComplete)
+	self._active     = true
+	self._score      = 0
+	self._missed     = 0
+	self._container  = container
+	self._theme      = theme
+	self._onComplete = onComplete
 	self:_buildUI()
 	self:_spawnLoop()
 end
@@ -217,10 +218,12 @@ function StarSmash:_showWin()
 
 	task.delay(3, function()
 		if win.Parent then win:Destroy() end
-		self._score  = 0
-		self._active = true
-		if self._scoreLbl.Parent then
-			self._scoreLbl.Text = "Score: 0"
+		if self._onComplete then
+			self._onComplete()
+		else
+			self._score  = 0
+			self._active = true
+			if self._scoreLbl.Parent then self._scoreLbl.Text = "Score: 0" end
 		end
 	end)
 end

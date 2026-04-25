@@ -28,10 +28,13 @@ function MemoryGarden.new()
 	return setmetatable({ _connections = {}, _active = false, _flowerCount = 0 }, MemoryGarden)
 end
 
-function MemoryGarden:Start(container, theme)
-	self._active    = true
-	self._container = container
-	self._theme     = theme
+local GARDEN_GOAL = 5  -- flowers needed to unlock finish
+
+function MemoryGarden:Start(container, theme, onComplete)
+	self._active     = true
+	self._container  = container
+	self._theme      = theme
+	self._onComplete = onComplete
 	self:_buildUI()
 end
 
@@ -198,13 +201,36 @@ function MemoryGarden:_plantFlower(text)
 		{ Size = UDim2.fromOffset(math.min(#text * 8 + 16, 140), 30) }
 	):Play()
 
-	-- Celebrate at 5 flowers
-	if self._flowerCount == 5 then
-		self._countLbl.Text = "🌟 Beautiful garden! Keep going!"
+	-- Celebrate at goal and show finish button
+	if self._flowerCount == GARDEN_GOAL then
+		self._countLbl.Text = "🌟 Beautiful garden! Keep going or finish!"
 		TweenService:Create(self._countLbl,
 			TweenInfo.new(0.3, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out),
 			{ TextSize = 20 }
 		):Play()
+		-- Show finish button
+		if not self._finishBtn then
+			local fb = Instance.new("TextButton")
+			fb.Size               = UDim2.new(0.5, 0, 0, 44)
+			fb.AnchorPoint        = Vector2.new(0.5, 0)
+			fb.Position           = UDim2.new(0.5, 0, 0, self._countLbl.Position.Y.Offset + 36)
+			fb.BackgroundColor3   = self._theme.accentColor
+			fb.BorderSizePixel    = 0
+			fb.Text               = "🌸  I'm done — take me back"
+			fb.TextColor3         = self._theme.textColor
+			fb.TextSize           = 15
+			fb.Font               = Enum.Font.GothamSemibold
+			fb.AutoButtonColor    = false
+			fb.ZIndex             = 15
+			fb.Parent             = self._container
+			local fbc = Instance.new("UICorner")
+			fbc.CornerRadius = UDim.new(0, 22)
+			fbc.Parent = fb
+			self._finishBtn = fb
+			fb.MouseButton1Click:Connect(function()
+				if self._onComplete then self._onComplete() end
+			end)
+		end
 	end
 end
 

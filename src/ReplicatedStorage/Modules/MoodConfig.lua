@@ -4,20 +4,11 @@
 local MoodConfig = {}
 
 -- ────────────────────────────────────────────────────────────────────────────
--- THEME TABLE
+-- AMBIENT PARTICLE STYLES  (used by AmbientLayer)
 -- ────────────────────────────────────────────────────────────────────────────
--- sky        : Atmosphere / sky hex
--- topColor   : gradient top
--- bottomColor: gradient bottom
--- accentColor: UI highlight, glow
--- textColor  : primary UI text
--- cardColor  : panel background (with transparency applied by client)
--- lighting   : Lighting service properties
--- music      : Roblox audio asset ID (SoundId)
--- game       : which mini-game module to load
--- label      : human-readable mood name
--- tagline    : message shown to the player after mood detection
--- emoji      : purely decorative label in UI
+-- style can be: "float", "sunray", "ember", "petal", "snowflake", "spark", "ripple"
+-- count   : how many particles
+-- shapes  : emoji array shown as TextLabel
 -- ────────────────────────────────────────────────────────────────────────────
 
 MoodConfig.Themes = {
@@ -27,7 +18,7 @@ MoodConfig.Themes = {
 		emoji      = "☀️",
 		tagline    = "You're radiating sunshine! Let's keep that energy going!",
 		topColor    = Color3.fromRGB(255, 220, 100),
-		bottomColor = Color3.fromRGB(255, 160,  50),
+		bottomColor = Color3.fromRGB(255, 140,  40),
 		accentColor = Color3.fromRGB(255, 200,  30),
 		textColor   = Color3.fromRGB(80,  50,   0),
 		cardColor   = Color3.fromRGB(255, 240, 180),
@@ -41,16 +32,20 @@ MoodConfig.Themes = {
 			FogColor          = Color3.fromRGB(255, 220, 140),
 		},
 		atmosphere = {
-			Density    = 0.3,
-			Offset     = 0.1,
-			Color      = Color3.fromRGB(255, 200, 100),
-			Decay      = Color3.fromRGB(255, 160,  60),
-			Glare      = 1.0,
-			Haze       = 0.2,
+			Density = 0.3, Offset = 0.1,
+			Color   = Color3.fromRGB(255, 200, 100),
+			Decay   = Color3.fromRGB(255, 160,  60),
+			Glare   = 1.0, Haze = 0.2,
 		},
-		-- Upbeat lofi / cheerful background – Roblox free audio
-		music  = "rbxassetid://1843620355",
-		game   = "ColorBurst",
+		ambient = {
+			style  = "sunray",
+			count  = 14,
+			shapes = {"✦","✧","⭐","🌟","✨"},
+			color  = Color3.fromRGB(255, 230, 80),
+		},
+		music        = "rbxassetid://1843620355",
+		game         = "ColorBurst",
+		alternateGame = "StarSmash",
 	},
 
 	calm = {
@@ -72,16 +67,20 @@ MoodConfig.Themes = {
 			FogColor          = Color3.fromRGB(160, 210, 240),
 		},
 		atmosphere = {
-			Density    = 0.4,
-			Offset     = 0.05,
-			Color      = Color3.fromRGB(120, 180, 220),
-			Decay      = Color3.fromRGB( 80, 140, 190),
-			Glare      = 0.2,
-			Haze       = 0.5,
+			Density = 0.4, Offset = 0.05,
+			Color   = Color3.fromRGB(120, 180, 220),
+			Decay   = Color3.fromRGB( 80, 140, 190),
+			Glare   = 0.2, Haze = 0.5,
 		},
-		-- Gentle lo-fi / nature ambience
-		music  = "rbxassetid://5982562",
-		game   = "CloudFloat",
+		ambient = {
+			style  = "ripple",
+			count  = 10,
+			shapes = {"○","◌","◦","·","☁️"},
+			color  = Color3.fromRGB(160, 220, 255),
+		},
+		music        = "rbxassetid://5982562",
+		game         = "CloudFloat",
+		alternateGame = "GratitudeJar",
 	},
 
 	excited = {
@@ -103,16 +102,20 @@ MoodConfig.Themes = {
 			FogColor          = Color3.fromRGB(200, 120, 220),
 		},
 		atmosphere = {
-			Density    = 0.2,
-			Offset     = 0.1,
-			Color      = Color3.fromRGB(220, 100, 200),
-			Decay      = Color3.fromRGB(160,  60, 180),
-			Glare      = 1.5,
-			Haze       = 0.1,
+			Density = 0.2, Offset = 0.1,
+			Color   = Color3.fromRGB(220, 100, 200),
+			Decay   = Color3.fromRGB(160,  60, 180),
+			Glare   = 1.5, Haze = 0.1,
 		},
-		-- High-energy arcade beat
-		music  = "rbxassetid://1843620355",
-		game   = "StarSmash",
+		ambient = {
+			style  = "spark",
+			count  = 22,
+			shapes = {"⚡","✦","✨","★","◈"},
+			color  = Color3.fromRGB(255, 220, 60),
+		},
+		music        = "rbxassetid://1843620355",
+		game         = "StarSmash",
+		alternateGame = "ColorBurst",
 	},
 
 	anxious = {
@@ -134,16 +137,20 @@ MoodConfig.Themes = {
 			FogColor          = Color3.fromRGB(160, 210, 190),
 		},
 		atmosphere = {
-			Density    = 0.6,
-			Offset     = 0.0,
-			Color      = Color3.fromRGB(100, 170, 140),
-			Decay      = Color3.fromRGB( 60, 120, 100),
-			Glare      = 0.0,
-			Haze       = 0.8,
+			Density = 0.6, Offset = 0.0,
+			Color   = Color3.fromRGB(100, 170, 140),
+			Decay   = Color3.fromRGB( 60, 120, 100),
+			Glare   = 0.0, Haze = 0.8,
 		},
-		-- Soothing nature / forest ambience
-		music  = "rbxassetid://5982562",
-		game   = "BubbleBreathing",
+		ambient = {
+			style  = "float",
+			count  = 12,
+			shapes = {"🍃","·","∘","○","🌿"},
+			color  = Color3.fromRGB(100, 200, 150),
+		},
+		music        = "rbxassetid://5982562",
+		game         = "LanternRelease",
+		alternateGame = "GratitudeJar",
 	},
 
 	sad = {
@@ -165,16 +172,56 @@ MoodConfig.Themes = {
 			FogColor          = Color3.fromRGB(190, 180, 220),
 		},
 		atmosphere = {
-			Density    = 0.7,
-			Offset     = 0.0,
-			Color      = Color3.fromRGB(160, 150, 200),
-			Decay      = Color3.fromRGB(100, 100, 160),
-			Glare      = 0.0,
-			Haze       = 1.0,
+			Density = 0.7, Offset = 0.0,
+			Color   = Color3.fromRGB(160, 150, 200),
+			Decay   = Color3.fromRGB(100, 100, 160),
+			Glare   = 0.0, Haze = 1.0,
 		},
-		-- Gentle piano / soft melody
-		music  = "rbxassetid://5982562",
-		game   = "MemoryGarden",
+		ambient = {
+			style  = "petal",
+			count  = 18,
+			shapes = {"🌸","🌺","🌷","✿","❀"},
+			color  = Color3.fromRGB(220, 180, 240),
+		},
+		music        = "rbxassetid://5982562",
+		game         = "MemoryGarden",
+		alternateGame = "GratitudeJar",
+	},
+
+	lonely = {
+		label      = "Lonely",
+		emoji      = "🌌",
+		tagline    = "You don't have to be alone in this. Let's build something together.",
+		topColor    = Color3.fromRGB( 20,  30,  80),
+		bottomColor = Color3.fromRGB( 60,  50, 120),
+		accentColor = Color3.fromRGB(140, 160, 255),
+		textColor   = Color3.fromRGB(220, 230, 255),
+		cardColor   = Color3.fromRGB( 50,  60, 130),
+		lighting = {
+			Ambient           = Color3.fromRGB( 20,  30,  80),
+			Brightness        = 1.0,
+			ColorShift_Bottom = Color3.fromRGB( 30,  40, 100),
+			ColorShift_Top    = Color3.fromRGB( 60,  80, 160),
+			OutdoorAmbient    = Color3.fromRGB( 30,  40,  90),
+			FogEnd            = 2200,
+			FogColor          = Color3.fromRGB( 60,  70, 130),
+		},
+		atmosphere = {
+			Density = 0.8, Offset = 0.0,
+			Color   = Color3.fromRGB( 80,  90, 160),
+			Decay   = Color3.fromRGB( 40,  50, 120),
+			Glare   = 0.0, Haze = 1.2,
+		},
+		ambient = {
+			style  = "snowflake",
+			count  = 20,
+			shapes = {"✦","✧","·","⋆","★"},
+			color  = Color3.fromRGB(160, 180, 255),
+		},
+		music        = "rbxassetid://5982562",
+		-- Primary: two-player constellation co-op
+		game         = "StarBridge",
+		alternateGame = "MemoryGarden",
 	},
 
 	angry = {
@@ -196,16 +243,20 @@ MoodConfig.Themes = {
 			FogColor          = Color3.fromRGB(220, 120,  80),
 		},
 		atmosphere = {
-			Density    = 0.5,
-			Offset     = 0.2,
-			Color      = Color3.fromRGB(220,  80,  60),
-			Decay      = Color3.fromRGB(180,  50,  40),
-			Glare      = 0.8,
-			Haze       = 0.4,
+			Density = 0.5, Offset = 0.2,
+			Color   = Color3.fromRGB(220,  80,  60),
+			Decay   = Color3.fromRGB(180,  50,  40),
+			Glare   = 0.8, Haze = 0.4,
 		},
-		-- Powerful, rhythmic beat (release tension)
-		music  = "rbxassetid://1843620355",
-		game   = "StarSmash",
+		ambient = {
+			style  = "ember",
+			count  = 20,
+			shapes = {"🔥","✦","◈","◆","▲"},
+			color  = Color3.fromRGB(255, 120, 40),
+		},
+		music        = "rbxassetid://1843620355",
+		game         = "StarSmash",
+		alternateGame = "LanternRelease",
 	},
 
 	stressed = {
@@ -227,16 +278,20 @@ MoodConfig.Themes = {
 			FogColor          = Color3.fromRGB(150, 200, 170),
 		},
 		atmosphere = {
-			Density    = 0.6,
-			Offset     = 0.0,
-			Color      = Color3.fromRGB(100, 170, 130),
-			Decay      = Color3.fromRGB( 60, 120, 100),
-			Glare      = 0.0,
-			Haze       = 0.9,
+			Density = 0.6, Offset = 0.0,
+			Color   = Color3.fromRGB(100, 170, 130),
+			Decay   = Color3.fromRGB( 60, 120, 100),
+			Glare   = 0.0, Haze = 0.9,
 		},
-		-- Lo-fi / calm study beats
-		music  = "rbxassetid://5982562",
-		game   = "GratitudeJar",
+		ambient = {
+			style  = "float",
+			count  = 10,
+			shapes = {"🍃","🌿","·","∘","○"},
+			color  = Color3.fromRGB(100, 200, 140),
+		},
+		music        = "rbxassetid://5982562",
+		game         = "GratitudeJar",
+		alternateGame = "LanternRelease",
 	},
 
 	neutral = {
@@ -258,30 +313,34 @@ MoodConfig.Themes = {
 			FogColor          = Color3.fromRGB(120, 150, 200),
 		},
 		atmosphere = {
-			Density    = 0.45,
-			Offset     = 0.05,
-			Color      = Color3.fromRGB(120, 150, 200),
-			Decay      = Color3.fromRGB( 80, 110, 170),
-			Glare      = 0.3,
-			Haze       = 0.4,
+			Density = 0.45, Offset = 0.05,
+			Color   = Color3.fromRGB(120, 150, 200),
+			Decay   = Color3.fromRGB( 80, 110, 170),
+			Glare   = 0.3, Haze = 0.4,
 		},
-		-- Chill background music
-		music  = "rbxassetid://1843620355",
-		game   = "ColorBurst",
+		ambient = {
+			style  = "float",
+			count  = 14,
+			shapes = {"✦","✧","⋆","·","★"},
+			color  = Color3.fromRGB(160, 200, 255),
+		},
+		music        = "rbxassetid://1843620355",
+		game         = "ColorBurst",
+		alternateGame = "CloudFloat",
 	},
 }
 
--- ─── Game descriptions shown in the selection screen ───────────────────────
+-- ─── Game info ─────────────────────────────────────────────────────────────
 MoodConfig.GameInfo = {
 	ColorBurst = {
 		name        = "Color Burst",
 		icon        = "🎨",
 		description = "Paint the world with joyful explosions of colour!",
 	},
-	BubbleBreathing = {
-		name        = "Bubble Breathing",
-		icon        = "🫧",
-		description = "Breathe in to grow the bubble, breathe out to float it away.",
+	LanternRelease = {
+		name        = "Lantern Release",
+		icon        = "🏮",
+		description = "Write a worry, light a lantern, and watch it float away.",
 	},
 	MemoryGarden = {
 		name        = "Memory Garden",
@@ -303,9 +362,14 @@ MoodConfig.GameInfo = {
 		icon        = "☁️",
 		description = "Drift on gentle clouds and collect peace as you float by.",
 	},
+	StarBridge = {
+		name        = "Star Bridge",
+		icon        = "🌌",
+		description = "Connect with another player — draw constellations together.",
+		twoPlayer   = true,
+	},
 }
 
--- Tween durations (seconds) for lighting/sky transitions
 MoodConfig.TransitionTime = 2.5
 
 return MoodConfig

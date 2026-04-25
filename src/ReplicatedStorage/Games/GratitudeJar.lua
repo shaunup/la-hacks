@@ -37,11 +37,14 @@ function GratitudeJar.new()
 	return setmetatable({ _connections = {}, _active = false, _count = 0 }, GratitudeJar)
 end
 
-function GratitudeJar:Start(container, theme)
-	self._active    = true
-	self._container = container
-	self._theme     = theme
-	self._count     = 0
+local JAR_GOAL = 5
+
+function GratitudeJar:Start(container, theme, onComplete)
+	self._active     = true
+	self._container  = container
+	self._theme      = theme
+	self._onComplete = onComplete
+	self._count      = 0
 	self:_buildUI()
 end
 
@@ -187,6 +190,30 @@ function GratitudeJar:_addGratitude(text)
 	self._count += 1
 	self._countLbl.Text = self._count .. " gratitude" ..
 		(self._count == 1 and "" or "s") .. "  •  beautiful 🌟"
+
+	-- Unlock finish after goal
+	if self._count == JAR_GOAL and not self._finishBtn then
+		local fb = Instance.new("TextButton")
+		fb.Size               = UDim2.new(0.55, 0, 0, 42)
+		fb.AnchorPoint        = Vector2.new(0.5, 0)
+		fb.Position           = UDim2.new(0.5, 0, 0, 370)
+		fb.BackgroundColor3   = self._theme.accentColor
+		fb.BorderSizePixel    = 0
+		fb.Text               = "🫙  Jar complete — see your reward"
+		fb.TextColor3         = self._theme.textColor
+		fb.TextSize           = 14
+		fb.Font               = Enum.Font.GothamSemibold
+		fb.AutoButtonColor    = false
+		fb.ZIndex             = 15
+		fb.Parent             = self._container
+		local fbc = Instance.new("UICorner")
+		fbc.CornerRadius = UDim.new(0, 21)
+		fbc.Parent = fb
+		self._finishBtn = fb
+		fb.MouseButton1Click:Connect(function()
+			if self._onComplete then self._onComplete() end
+		end)
+	end
 
 	-- Pulse jar
 	local glow = GLOW_COLORS[((self._count - 1) % #GLOW_COLORS) + 1]

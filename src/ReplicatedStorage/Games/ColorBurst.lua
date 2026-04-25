@@ -109,9 +109,10 @@ function ColorBurst:_buildUI(container, theme)
 	self._container  = container
 end
 
-function ColorBurst:Start(container, theme)
-	self._active = true
-	self._score  = 0
+function ColorBurst:Start(container, theme, onComplete)
+	self._active     = true
+	self._score      = 0
+	self._onComplete = onComplete
 	self:_buildUI(container, theme)
 
 	local conn = self._catcher.MouseButton1Click:Connect(function()
@@ -195,12 +196,16 @@ function ColorBurst:_showWin(container, theme)
 	end)
 
 	task.delay(3, function()
-		win:Destroy()
-		-- Reset for another round
-		self._score  = 0
-		self._active = true
-		if self._scoreLabel and self._scoreLabel.Parent then
-			self._scoreLabel.Text = "Bursts: 0 / " .. SCORE_GOAL
+		if win.Parent then win:Destroy() end
+		if self._onComplete then
+			self._onComplete()
+		else
+			-- Default: reset for another round
+			self._score  = 0
+			self._active = true
+			if self._scoreLabel and self._scoreLabel.Parent then
+				self._scoreLabel.Text = "Bursts: 0 / " .. SCORE_GOAL
+			end
 		end
 	end)
 end

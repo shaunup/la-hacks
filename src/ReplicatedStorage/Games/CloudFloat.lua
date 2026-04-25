@@ -15,11 +15,12 @@ function CloudFloat.new()
 	return setmetatable({ _connections = {}, _active = false, _score = 0 }, CloudFloat)
 end
 
-function CloudFloat:Start(container, theme)
-	self._active    = true
-	self._score     = 0
-	self._container = container
-	self._theme     = theme
+function CloudFloat:Start(container, theme, onComplete)
+	self._active     = true
+	self._score      = 0
+	self._container  = container
+	self._theme      = theme
+	self._onComplete = onComplete
 	self:_buildUI()
 	self:_spawnLoop()
 end
@@ -186,10 +187,12 @@ function CloudFloat:_showWin()
 
 	task.delay(3.5, function()
 		if win.Parent then win:Destroy() end
-		self._score  = 0
-		self._active = true
-		if self._scoreLbl.Parent then
-			self._scoreLbl.Text = "Peace: 0 / " .. SCORE_GOAL
+		if self._onComplete then
+			self._onComplete()
+		else
+			self._score  = 0
+			self._active = true
+			if self._scoreLbl.Parent then self._scoreLbl.Text = "Peace: 0 / " .. SCORE_GOAL end
 		end
 	end)
 end
