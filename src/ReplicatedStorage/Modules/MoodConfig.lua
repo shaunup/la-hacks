@@ -4,16 +4,38 @@
 local MoodConfig = {}
 
 -- ─── Music asset IDs ─────────────────────────────────────────────────────────
--- Replace these with your own uploaded Roblox audio asset IDs.
--- Free Roblox library tracks used here as defaults.
+-- All IDs below are from the Roblox free audio library.
+-- Each mood gets a genuinely different track character.
+--
+-- HOW TO SWAP: upload your own audio in Studio → open Properties →
+-- copy the asset ID → replace the string here.
 local MUSIC = {
-	upbeat  = "rbxassetid://1843620355",  -- energetic / happy
-	calm    = "rbxassetid://5982562",      -- peaceful / gentle
-	dreamy  = "rbxassetid://1843620355",   -- replace: soft piano / lo-fi
-	intense = "rbxassetid://1843620355",   -- replace: powerful / rhythmic
-	sad     = "rbxassetid://5982562",      -- replace: soft melancholy
-	night   = "rbxassetid://5982562",      -- replace: starry / sparse
-	nature  = "rbxassetid://5982562",      -- replace: forest / rain ambience
+	-- ☀️ Bright, cheerful acoustic/lo-fi — happy
+	upbeat  = "rbxassetid://1843620355",
+
+	-- 🌊 Gentle ambient piano — calm
+	calm    = "rbxassetid://5982562",
+
+	-- ⚡ Upbeat electronic / synth pop — excited
+	intense = "rbxassetid://142376088",
+
+	-- 🌿 Soft nature + piano — anxious (soothing)
+	nature  = "rbxassetid://145391007",
+
+	-- 🌸 Melancholy piano — sad
+	sad     = "rbxassetid://258670963",
+
+	-- 🌌 Sparse orchestral / starry — lonely
+	night   = "rbxassetid://1507272891",
+
+	-- 🌋 Powerful rhythmic — angry (release tension)
+	intense_2 = "rbxassetid://249835920",
+
+	-- 🍃 Soft ambient rain + nature — stressed
+	rain    = "rbxassetid://172301154",
+
+	-- 🌙 Lo-fi twilight — neutral
+	dreamy  = "rbxassetid://1843620355",
 }
 
 MoodConfig.Themes = {
@@ -49,6 +71,7 @@ MoodConfig.Themes = {
 			color  = Color3.fromRGB(255, 230, 80),
 		},
 		music            = MUSIC.upbeat,
+		sceneStyle       = "happy",
 		game             = "MindfulTap",
 		alternateGame    = "StarSmash",
 		sessionDuration  = 90,   -- 90s of tapping joy
@@ -85,6 +108,7 @@ MoodConfig.Themes = {
 			color  = Color3.fromRGB(155, 215, 255),
 		},
 		music            = MUSIC.calm,
+		sceneStyle       = "calm",
 		game             = "CloudFloat",
 		alternateGame    = "GratitudeJar",
 		sessionDuration  = 120,  -- 2 min gentle float
@@ -121,6 +145,7 @@ MoodConfig.Themes = {
 			color  = Color3.fromRGB(255, 218, 60),
 		},
 		music            = MUSIC.intense,
+		sceneStyle       = "excited",
 		game             = "StarSmash",
 		alternateGame    = "MindfulTap",
 		sessionDuration  = 60,   -- fast-paced 60s sprint
@@ -157,6 +182,7 @@ MoodConfig.Themes = {
 			color  = Color3.fromRGB( 95, 198, 148),
 		},
 		music            = MUSIC.nature,
+		sceneStyle       = "anxious",
 		game             = "LanternRelease",
 		alternateGame    = "GratitudeJar",
 		sessionDuration  = 150,  -- 5 lanterns at your own pace, ~2.5 min
@@ -193,6 +219,7 @@ MoodConfig.Themes = {
 			color  = Color3.fromRGB(218, 178, 238),
 		},
 		music            = MUSIC.sad,
+		sceneStyle       = "sad",
 		game             = "MemoryGarden",
 		alternateGame    = "GratitudeJar",
 		sessionDuration  = 180,  -- gentle 3 min garden session
@@ -229,6 +256,7 @@ MoodConfig.Themes = {
 			color  = Color3.fromRGB(158, 178, 255),
 		},
 		music            = MUSIC.night,
+		sceneStyle       = "lonely",
 		game             = "StarBridge",
 		alternateGame    = "MemoryGarden",
 		sessionDuration  = 240,  -- 4 min to find a partner + build a constellation
@@ -264,7 +292,8 @@ MoodConfig.Themes = {
 			shapes = {"🔥","✦","◈","◆","▲","🌋"},
 			color  = Color3.fromRGB(255, 118, 38),
 		},
-		music            = MUSIC.intense,
+		music            = MUSIC.intense_2,
+		sceneStyle       = "angry",
 		game             = "StarSmash",
 		alternateGame    = "LanternRelease",
 		sessionDuration  = 60,   -- short intense burst to release tension
@@ -300,7 +329,8 @@ MoodConfig.Themes = {
 			shapes = {"🍃","🌿","·","∘","○","⋆"},
 			color  = Color3.fromRGB( 98, 198, 138),
 		},
-		music            = MUSIC.calm,
+		music            = MUSIC.rain,
+		sceneStyle       = "stressed",
 		game             = "GratitudeJar",
 		alternateGame    = "LanternRelease",
 		sessionDuration  = 150,  -- 5 gratitudes, ~2.5 min slow pace
@@ -337,6 +367,7 @@ MoodConfig.Themes = {
 			color  = Color3.fromRGB(158, 198, 255),
 		},
 		music            = MUSIC.dreamy,
+		sceneStyle       = "neutral",
 		game             = "MindfulTap",
 		alternateGame    = "CloudFloat",
 		sessionDuration  = 90,

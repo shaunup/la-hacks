@@ -32,6 +32,9 @@
         },
         "AmbientLayer": {
           "$path": "src/ReplicatedStorage/Modules/AmbientLayer.lua"
+        },
+        "SceneLayer": {
+          "$path": "src/ReplicatedStorage/Modules/SceneLayer.lua"
         }
       },
       "Games": {

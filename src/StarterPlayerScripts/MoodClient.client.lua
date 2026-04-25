@@ -21,6 +21,7 @@ local GetDailyChallenge      = ReplicatedStorage:WaitForChild("GetDailyChallenge
 local Modules      = ReplicatedStorage:WaitForChild("Modules")
 local MoodConfig   = require(Modules:WaitForChild("MoodConfig"))
 local AmbientLayer = require(Modules:WaitForChild("AmbientLayer"))
+local SceneLayer   = require(Modules:WaitForChild("SceneLayer"))
 local Games        = ReplicatedStorage:WaitForChild("Games")
 
 -- ─── State ───────────────────────────────────────────────────────────────────
@@ -29,6 +30,8 @@ local currentMood   = nil
 local currentGame   = nil
 local bgMusic       = nil
 local ambient       = nil
+local sceneObj      = nil           -- SceneLayer instance
+local musicVolume   = 0.55          -- adjustable via volume button
 local gradTop       = Color3.fromRGB(16, 16, 48)
 local gradBottom    = Color3.fromRGB(48, 24, 72)
 
@@ -181,8 +184,15 @@ local function playMusic(theme)
 	snd.RollOffMaxDistance = 1e9
 	snd.Parent   = SoundService
 	snd:Play()
-	tw(snd, { Volume = 0.55 }, 2.5)
+	tw(snd, { Volume = musicVolume }, 2.5)
 	bgMusic = snd
+end
+
+-- ─── Scene layer ─────────────────────────────────────────────────────────────
+
+local function startScene(theme)
+	if sceneObj then sceneObj:Stop() end
+	sceneObj = SceneLayer.new(bgFrame, theme.sceneStyle or "neutral")
 end
 
 -- ─── Ambient particles ────────────────────────────────────────────────────────
@@ -198,8 +208,46 @@ local function applyTheme(theme)
 	transitionBG(theme)
 	applyLighting(theme)
 	playMusic(theme)
-	startAmbient(theme)
+	startScene(theme)
+	startAmbient(theme)  -- ambient particles on top of scene
 end
+
+-- ─── Volume control overlay ───────────────────────────────────────────────────
+-- Persistent pill in the bottom-right corner; always visible after first theme
+
+local volBtn = Instance.new("TextButton")
+volBtn.Name               = "VolumeBtn"
+volBtn.Size               = UDim2.fromOffset(120, 36)
+volBtn.AnchorPoint        = Vector2.new(1, 1)
+volBtn.Position           = UDim2.new(1, -12, 1, -12)
+volBtn.BackgroundColor3   = Color3.fromRGB(40, 40, 80)
+volBtn.BackgroundTransparency = 0.35
+volBtn.BorderSizePixel    = 0
+volBtn.Text               = "🔊  Vol: 55%"
+volBtn.TextColor3         = Color3.fromRGB(220, 220, 255)
+volBtn.TextSize           = 14
+volBtn.Font               = Enum.Font.GothamSemibold
+volBtn.AutoButtonColor    = false
+volBtn.ZIndex             = 50
+volBtn.Visible            = false   -- shown after first mood
+volBtn.Parent             = gui
+round(volBtn, 18)
+
+local VOL_STEPS = { 0, 0.2, 0.4, 0.6, 0.8, 1.0 }
+local volIdx    = 4  -- starts at 0.6 (index 4 = 0.6 → shown as 55 initially)
+
+local function setVolume(v)
+	musicVolume = v
+	if bgMusic and bgMusic.Parent then bgMusic.Volume = v end
+	local pct = math.floor(v * 100)
+	local icon = v == 0 and "🔇" or (v < 0.4 and "🔉" or "🔊")
+	volBtn.Text = icon .. "  Vol: " .. pct .. "%"
+end
+
+volBtn.MouseButton1Click:Connect(function()
+	volIdx = (volIdx % #VOL_STEPS) + 1
+	setVolume(VOL_STEPS[volIdx])
+end)
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- SCREEN 0: Name Entry  (first-time personalisation)
@@ -208,6 +256,7 @@ end
 local buildStartScreen_entry  -- forward
 
 local function buildNameEntry()
+	if sceneObj then sceneObj:Stop(); sceneObj = nil end
 	startAmbient({
 		ambient = {
 			style  = "snowflake", count  = 18,
@@ -1067,6 +1116,8 @@ end
 
 function buildStartScreen_entry()
 	currentGame = nil
+	-- Clear any mood scene so start screen looks clean
+	if sceneObj then sceneObj:Stop(); sceneObj = nil end
 	-- Restore neutral ambient during mood input
 	startAmbient({
 		ambient = {
@@ -1127,9 +1178,10 @@ function buildStartScreen_entry()
 				end)
 				if ok2 then personalised = r2 end
 
-				-- Apply full theme (background + lighting + music + ambient)
+				-- Apply full theme (background + lighting + music + scene + ambient)
 				applyTheme(MoodConfig.Themes[mood])
 				currentMood = mood
+				volBtn.Visible = true
 
 				dotConn:Disconnect()
 				tw(loadScr, { BackgroundTransparency = 1 }, 0.4)
